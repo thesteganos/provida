@@ -1,1 +1,46 @@
+# .gitignore
+
+# Arquivos de ambiente - NUNCA versionar credenciais!
 .env
+
+# Dependências do Python e ambientes virtuais
+venv/
+*.pyc
+__pycache__/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Artefatos de tempo de execução da aplicação PROVIDA
+# Banco de dados vetorial local
+faiss_index/
+
+# Logs e arquivos gerados
+knowledge_sources/uploads/
+knowledge_sources/downloads/
+knowledge_sources/content_hashes.log
+
+# Arquivos de IDE e sistema operacional
+.idea/
+.vscode/
+*.DS_Store
+*.suo
+*.user
+*.userosscache
+*.sln
+*.swp
