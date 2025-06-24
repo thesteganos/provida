@@ -1,6 +1,21 @@
 
 **Arquivo: `main.py`**```python
 # main.py
+"""
+Este módulo implementa a API FastAPI para a aplicação PROVIDA.
+
+Ele define os endpoints para:
+1. Processar dados de pacientes: Recebe informações do paciente, dispara o fluxo
+   de agentes (definido em `graph.py`) e retorna o plano terapêutico final.
+2. Consultar a base de conhecimento: Permite realizar buscas RAG na base de
+   documentos (gerenciada por `kb_manager.py`).
+3. Ingerir novos documentos: Permite o upload de arquivos PDF ou TXT para
+   serem adicionados à base de conhecimento RAG.
+
+Utiliza Pydantic para validação de dados de requisição e resposta.
+Carrega variáveis de ambiente com `dotenv` e configura um cache em memória
+para LLMs com LangChain.
+"""
 import os
 import shutil
 import uuid
@@ -20,27 +35,51 @@ from kb_manager import kb_manager
 app = FastAPI(title="PROVIDA - Ecossistema de IA para Gestão Metabólica", version="2.0.0")
 
 class PatientInput(BaseModel):
-    name: str = Field(..., example="João da Silva")
-    age: int = Field(..., example=45)
-    imc: float = Field(..., example=34.0)
-    hba1c: float = Field(..., example=6.8)
-    notes: str = Field(..., example="Paciente relata cansaço frequente.")
+    """Modelo Pydantic para os dados de entrada de um paciente."""
+    name: str = Field(..., example="João da Silva", description="Nome completo do paciente.")
+    age: int = Field(..., example=45, description="Idade do paciente em anos.")
+    imc: float = Field(..., example=34.0, description="Índice de Massa Corporal (IMC) do paciente.")
+    hba1c: float = Field(..., example=6.8, description="Valor da Hemoglobina Glicada (HbA1c) do paciente.")
+    notes: str = Field(..., example="Paciente relata cansaço frequente.", description="Notas clínicas adicionais ou queixas do paciente.")
 
 class ProcessRequest(BaseModel):
-    patient_id: Optional[str] = Field(None, description="ID existente do paciente.")
-    patient_data: PatientInput
+    """Modelo Pydantic para a requisição de processamento de paciente."""
+    patient_id: Optional[str] = Field(None, description="ID existente do paciente (opcional). Se não fornecido, um novo ID será gerado.")
+    patient_data: PatientInput = Field(..., description="Dados do paciente para processamento.")
 
 class ProcessResponse(BaseModel):
-    patient_id: str
-    final_plan_for_clinician: str
+    """Modelo Pydantic para a resposta do processamento de paciente."""
+    patient_id: str = Field(..., description="ID do paciente processado.")
+    final_plan_for_clinician: str = Field(..., description="Plano terapêutico final gerado para o clínico.")
 
-class KnowledgeQuery(BaseModel): query: str
-class DocumentMetadata(BaseModel): source: str; page: Optional[int] = None
-class DocumentSnippet(BaseModel): page_content: str; metadata: DocumentMetadata
-class KnowledgeResponse(BaseModel): source_documents: list[DocumentSnippet]
+class KnowledgeQuery(BaseModel):
+    """Modelo Pydantic para a requisição de consulta à base de conhecimento."""
+    query: str = Field(..., description="Texto da pergunta ou tópico para buscar na base de conhecimento RAG.")
 
-@app.post("/process_patient", response_model=ProcessResponse)
+class DocumentMetadata(BaseModel):
+    """Modelo Pydantic para os metadados de um trecho de documento."""
+    source: str = Field(..., description="Origem do documento (ex: nome do arquivo).")
+    page: Optional[int] = Field(None, description="Número da página (se aplicável).")
+
+class DocumentSnippet(BaseModel):
+    """Modelo Pydantic para um trecho de documento recuperado pela busca RAG."""
+    page_content: str = Field(..., description="Conteúdo textual do trecho do documento.")
+    metadata: DocumentMetadata = Field(..., description="Metadados associados ao trecho.")
+
+class KnowledgeResponse(BaseModel):
+    """Modelo Pydantic para a resposta da consulta à base de conhecimento."""
+    source_documents: list[DocumentSnippet] = Field(..., description="Lista de trechos de documentos relevantes encontrados.")
+
+@app.post("/process_patient", response_model=ProcessResponse, summary="Processa Dados do Paciente e Gera Plano Terapêutico")
 async def process_patient_data(request: ProcessRequest):
+    """
+    Recebe os dados de um paciente, executa o fluxo de agentes PROVIDA e retorna um plano terapêutico.
+
+    - Se `patient_id` não for fornecido na requisição, um novo UUID é gerado.
+    - Invoca o `provida_app` (grafo LangGraph) com o estado inicial contendo
+      `patient_id` e `patient_data`.
+    - Retorna o ID do paciente e o plano final gerado.
+    """
     patient_id = request.patient_id or str(uuid.uuid4())
     initial_state = {"patient_id": patient_id, "patient_data": request.patient_data.dict()}
     try:
@@ -49,8 +88,14 @@ async def process_patient_data(request: ProcessRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no fluxo do agente: {e}")
 
-@app.post("/knowledge/query", response_model=KnowledgeResponse)
+@app.post("/knowledge/query", response_model=KnowledgeResponse, summary="Consulta a Base de Conhecimento RAG")
 async def query_knowledge_base(query: KnowledgeQuery):
+    """
+    Realiza uma busca na base de conhecimento RAG (documentos) com a query fornecida.
+
+    - Utiliza o retriever do `kb_manager` para encontrar trechos de documentos relevantes.
+    - Retorna uma lista de `DocumentSnippet` contendo o conteúdo e metadados dos trechos.
+    """
     try:
         docs = await kb_manager.retriever.ainvoke(query.query)
         return KnowledgeResponse(source_documents=[DocumentSnippet.model_validate(doc.dict()) for doc in docs])
@@ -58,8 +103,17 @@ async def query_knowledge_base(query: KnowledgeQuery):
         logging.error(f"Erro ao consultar a base de conhecimento: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/knowledge/ingest")
-async def ingest_new_knowledge(file: UploadFile = File(...)): # Removido BackgroundTasks
+@app.post("/knowledge/ingest", summary="Ingere Novo Documento na Base de Conhecimento")
+async def ingest_new_knowledge(file: UploadFile = File(...)):
+    """
+    Recebe um arquivo (PDF ou TXT) via upload e o ingere na base de conhecimento RAG.
+
+    - Valida o tipo de arquivo (somente .pdf e .txt são permitidos).
+    - Salva o arquivo temporariamente em `knowledge_sources/uploads`.
+    - Chama `kb_manager.ingest_new_document()` para processar e indexar o documento.
+    - Retorna uma mensagem com o resultado da ingestão.
+    - Lida com possíveis erros durante o salvamento e a ingestão, retornando HTTPExceptions apropriadas.
+    """
     if not (file.filename.endswith('.pdf') or file.filename.endswith('.txt')):
         raise HTTPException(status_code=400, detail="Formato de arquivo inválido. Apenas PDF e TXT são permitidos.")
 

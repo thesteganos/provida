@@ -1,4 +1,29 @@
 # research_worker.py
+"""
+Este módulo implementa o Agente de Pesquisa Autônomo do sistema PROVIDA.
+
+O agente é projetado para rodar periodicamente (agendado com `schedule`),
+buscando novos artigos científicos relevantes no PubMed. Para cada tema de
+interesse configurado, ele:
+1. Busca artigos no PubMed usando a ferramenta `PubMedQueryRun`.
+2. Para cada artigo encontrado, utiliza um LLM (agente crítico/analisador) para:
+    a. Determinar a relevância clínica do artigo.
+    b. Gerar um resumo em português.
+    c. Tentar extrair uma URL para o PDF do texto completo.
+3. Se um artigo for relevante e uma URL de PDF for encontrada, o PDF é baixado.
+4. O documento baixado é então ingerido na base de conhecimento RAG através
+   do `KnowledgeBaseManager`.
+
+Principais componentes:
+- `ArticleAnalysis`: Modelo Pydantic para estruturar a análise do LLM sobre um artigo.
+- `ResearchAgent`: Classe que encapsula a lógica do agente de pesquisa,
+  incluindo a busca, análise, download e ingestão de artigos.
+- Agendamento de tarefas com `schedule` para execução periódica.
+- Logging detalhado das operações.
+
+O objetivo é manter a base de conhecimento do sistema atualizada com as mais
+recentes evidências científicas.
+"""
 import schedule
 import time
 import os
@@ -19,13 +44,41 @@ from config_loader import config
 from kb_manager import kb_manager
 
 class ArticleAnalysis(BaseModel):
+    """
+    Modelo Pydantic para estruturar o resultado da análise de um artigo científico pelo LLM.
+
+    Campos:
+        is_relevant (bool): Indica se o artigo é considerado clinicamente relevante.
+        summary_pt (str): Resumo do artigo em português.
+        reasoning (str): Justificativa para a decisão de relevância.
+        pdf_url (str): URL para o PDF do artigo, se encontrada; caso contrário, "N/A".
+    """
     is_relevant: bool = Field(description="True se o artigo for clinicamente relevante.")
     summary_pt: str = Field(description="Resumo do artigo em português.")
     reasoning: str = Field(description="Justificativa da relevância.")
     pdf_url: str = Field(description="URL do PDF ou 'N/A'.")
 
 class ResearchAgent:
+    """
+    Encapsula a lógica do agente de pesquisa autônomo.
+
+    Este agente busca artigos no PubMed, os analisa quanto à relevância usando um LLM,
+    tenta baixar os PDFs de artigos relevantes e os ingere na base de conhecimento.
+
+    Atributos:
+        pubmed_tool (PubMedQueryRun): Ferramenta LangChain para buscar no PubMed.
+        analyzer_llm (ChatGoogleGenerativeAI): Modelo de linguagem para analisar os artigos.
+        analysis_parser (PydanticOutputParser): Parser para a saída do LLM de análise.
+        analysis_prompt (ChatPromptTemplate): Template de prompt para o LLM de análise.
+        analyzer_chain (LangChain Runnable): Cadeia LangChain para o processo de análise.
+    """
     def __init__(self):
+        """
+        Inicializa o ResearchAgent.
+
+        Configura a ferramenta PubMed, o LLM de análise (crítico), o parser de saída,
+        o prompt de análise e a cadeia LangChain completa para a análise de artigos.
+        """
         self.pubmed_tool = PubMedQueryRun()
         self.analyzer_llm = config.get_llm("critique_agent")
         self.analysis_parser = PydanticOutputParser(pydantic_object=ArticleAnalysis)
@@ -36,6 +89,22 @@ class ResearchAgent:
         self.analyzer_chain = self.analysis_prompt | self.analyzer_llm | self.analysis_parser
 
     def _get_pdf_url_from_pubmed_entry(self, pubmed_entry: str) -> str:
+        """
+        Tenta extrair uma URL de PDF a partir do texto de uma entrada do PubMed.
+
+        Utiliza expressões regulares para encontrar URLs. Prioriza aquelas que
+        contêm ".pdf". Também busca por links para repositórios comuns como
+        NCBI PMC e Europe PMC, verificando se há menção a "pdf" ou "full text"
+        no contexto da entrada.
+
+        Args:
+            pubmed_entry (str): O texto completo da entrada do PubMed (geralmente o abstract
+                                e metadados retornados pela API do PubMed).
+
+        Returns:
+            str: A primeira URL de PDF encontrada, ou a primeira URL genérica promissora.
+                 Retorna "N/A" se nenhuma URL adequada for identificada.
+        """
         # Tenta encontrar URLs que parecem ser de PDFs de forma mais genérica
         # Prioriza URLs que contenham 'pdf', mas também captura outras URLs diretas.
         # Regex para encontrar URLs HTTP/HTTPS
@@ -76,6 +145,19 @@ class ResearchAgent:
         return "N/A"
 
     def run_research_cycle(self):
+        """
+        Executa um ciclo completo de pesquisa autônoma.
+
+        Para cada tópico de interesse definido na configuração (`config.yaml`):
+        1. Constrói uma query para o PubMed, buscando por tipos de publicação específicos
+           (RCTs, meta-análises, diretrizes).
+        2. Executa a busca no PubMed.
+        3. Para cada artigo retornado (até um máximo configurado):
+            a. Analisa o artigo usando o `analyzer_chain` (LLM) para verificar relevância,
+               gerar resumo e tentar obter URL do PDF.
+            b. Se relevante e com PDF, chama `download_and_ingest`.
+        Trata exceções durante a pesquisa e análise de artigos individuais.
+        """
         logging.info("\n--- INICIANDO CICLO DE PESQUISA AUTÔNOMA ---")
         research_config = config._config.get('research_agent', {})
         topics = research_config.get('topics_of_interest', [])
@@ -109,6 +191,25 @@ class ResearchAgent:
         logging.info("\n--- CICLO DE PESQUISA CONCLUÍDO ---")
 
     def download_and_ingest(self, url: str, preferred_filename_base: str = "article"):
+        """
+        Baixa um arquivo de uma URL e o ingere na base de conhecimento.
+
+        1. Cria um diretório de downloads se não existir.
+        2. Determina um nome de arquivo:
+           - Tenta usar o nome do arquivo da URL.
+           - Se não disponível, usa `preferred_filename_base` com um hash da URL.
+           - Garante que o nome do arquivo seja limpo e tenha uma extensão (padrão .pdf).
+        3. Baixa o arquivo usando `urlretrieve`.
+        4. (Opcional) Verifica a extensão do arquivo baixado (atualmente loga um aviso se não for .pdf).
+        5. Chama `kb_manager.ingest_new_document()` para processar e indexar o arquivo.
+        6. Loga o resultado da ingestão.
+        7. Trata exceções de HTTP e outras durante o download/ingestão.
+
+        Args:
+            url (str): A URL do arquivo a ser baixado.
+            preferred_filename_base (str): Um nome base para usar se o nome do arquivo
+                                           não puder ser derivado da URL.
+        """
         try:
             download_dir = os.path.join("knowledge_sources", "downloads")
             os.makedirs(download_dir, exist_ok=True)
@@ -160,6 +261,14 @@ class ResearchAgent:
             logging.error(f"  -> ERRO: Falha no processo de download ou ingestão de {url}. Erro: {e}", exc_info=True)
 
 if __name__ == "__main__":
+    """
+    Ponto de entrada para executar o worker de pesquisa de forma independente.
+
+    Configura o logging, instancia o `ResearchAgent`, agenda sua execução periódica
+    com base no intervalo definido em `config.yaml`, e executa um ciclo de pesquisa
+    imediatamente ao iniciar. Mantém o script rodando para permitir que o agendador
+    execute as tarefas.
+    """
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     agent = ResearchAgent()
     run_interval = config._config.get('research_agent', {}).get('run_interval_hours', 24)
