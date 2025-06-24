@@ -1,4 +1,30 @@
 # graph.py
+"""
+Este módulo define e constrói o grafo de fluxo de trabalho (workflow) da aplicação PROVIDA.
+
+Utilizando LangGraph, ele orquestra a execução sequencial e condicional dos diferentes
+agentes (anamnese, diagnóstico, planejamento, verificação). O grafo gerencia o estado
+da aplicação, passando informações entre os nós (agentes) e tomando decisões
+de roteamento com base nos resultados intermediários.
+
+Principais componentes:
+- `AgentState`: Uma TypedDict que define a estrutura do estado compartilhado entre os nós do grafo.
+- Nós de Agente: Funções que executam a lógica de cada agente (importadas de `agents.py`).
+- Nós de Lógica/Roteamento: Funções que implementam a lógica condicional (ex: `should_replan`)
+  ou de finalização (ex: `finalize_response`).
+- Construção do Grafo: Define os nós e as arestas (conexões) que determinam a ordem de execução
+  e as transições de estado.
+- `provida_app`: A instância compilada do grafo LangGraph, pronta para ser executada.
+
+O fluxo típico é:
+1. Anamnese: Coleta e estrutura dados do paciente.
+2. Diagnóstico: Analisa os dados e gera um diagnóstico.
+3. Planejamento: Cria um plano terapêutico com base no diagnóstico.
+4. Verificação: Avalia a qualidade e segurança do plano.
+   - Se o plano for seguro, o fluxo segue para finalização.
+   - Se o plano precisar de ajustes, retorna ao planejamento com instruções.
+5. Finalização: Compila a resposta final para o clínico.
+"""
 import logging # Adicionado logging
 from typing import TypedDict, Dict, Any, Optional
 from langgraph.graph import StateGraph, END
@@ -29,7 +55,9 @@ class AgentState(TypedDict):
         final_response (Optional[str]): A resposta final consolidada para ser apresentada ao clínico.
     """
     patient_id: str
+    """Identificador único para o paciente."""
     patient_data: Dict[str, Any]
+    """Dados brutos de entrada sobre o paciente, geralmente um dicionário."""
     patient_data_structured: Optional[Dict[str, Any]]
     diagnosis: Optional[str]
     plan: Optional[str]
@@ -41,11 +69,23 @@ class AgentState(TypedDict):
 
 def should_replan(state: AgentState) -> str:
     """
-    Nó de roteamento condicional. Decide o próximo passo com base no resultado da verificação.
-    
-    Retorna:
-        'finalize': Se o plano for considerado seguro e com alta confiança.
-        'replan': Se o plano precisar de correções.
+    Decide se o fluxo de trabalho deve prosseguir para a finalização ou retornar ao planejamento.
+
+    Este nó é invocado após o agente de verificação. Ele analisa o resultado da verificação
+    (especificamente o campo `is_safe_to_proceed` e a presença de erros) para determinar
+    o próximo passo no grafo.
+
+    Se a verificação indicar que o plano é seguro e não houve erros críticos,
+    o fluxo é direcionado para 'finalize'. Caso contrário, é direcionado para 'replan',
+    e instruções para o replanejamento são adicionadas ao estado.
+
+    Args:
+        state (AgentState): O estado atual do grafo, contendo o resultado da verificação
+                            em `state['verification']`.
+
+    Returns:
+        str: A string 'finalize' para prosseguir para a finalização, ou 'replan' para
+             retornar ao agente de planejamento.
     """
     print("---ROTEANDO APÓS VERIFICAÇÃO---")
     verification_result = state.get("verification")
@@ -93,7 +133,19 @@ def should_replan(state: AgentState) -> str:
 
 def finalize_response(state: AgentState) -> dict:
     """
-    Nó final. Compila a resposta final e bem formatada para ser apresentada ao clínico.
+    Compila a resposta final consolidada para ser apresentada ao clínico.
+
+    Este nó é geralmente o último no fluxo principal. Ele pega os dados acumulados
+    no estado (diagnóstico, plano, resultado da verificação) e os formata em uma
+    string de resposta coesa e legível.
+
+    Args:
+        state (AgentState): O estado final do grafo, contendo `patient_id`, `diagnosis`,
+                            `plan`, e `verification`.
+
+    Returns:
+        dict: Um dicionário contendo a chave `final_response` com a string formatada
+              da resposta final.
     """
     print("---COMPILANDO RESPOSTA FINAL---")
     verification_result = state.get("verification", {})
