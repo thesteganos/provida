@@ -1,0 +1,57 @@
+# Configurações de concorrência para APIs externas
+api_concurrency:
+  google_max_concurrent_requests: 8
+
+# Configurações de embedding para RAG
+embedding_provider:
+  provider: "huggingface" # Opções: "huggingface" (local) ou "google" (API)
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+
+# Configurações para o sistema RAG
+rag_config:
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k_results: 3 # Quantos documentos o RAG deve retornar
+
+# Configuração dos modelos de linguagem para cada agente
+agent_models:
+  default:
+    provider: "google"
+    model_name: "gemini-1.5-flash-latest"
+    temperature: 0.2
+  
+  anamnesis_agent:
+    provider: "google"
+    model_name: "gemini-1.5-flash-latest"
+    temperature: 0.1
+  
+  diagnosis_agent:
+    provider: "google"
+    model_name: "gemini-1.5-pro-latest"
+    temperature: 0.3
+
+  planning_agent:
+    provider: "google"
+    model_name: "gemini-1.5-pro-latest"
+    temperature: 0.4
+    
+  verification_agent:
+    provider: "google"
+    model_name: "gemini-1.5-flash-latest"
+    temperature: 0.1
+
+  critique_agent: # Usado para introspecção e análise de artigos
+    provider: "google"
+    model_name: "gemini-1.5-flash-latest"
+    temperature: 0.3
+
+# Configuração do Agente de Pesquisa Autônomo
+research_agent:
+  run_interval_hours: 24 
+  max_articles_per_topic: 5
+  topics_of_interest:
+    - "obesity treatment guidelines 2025"
+    - "semaglutide cardiovascular outcomes"
+    - "metabolic syndrome new diagnostic criteria"
+    - "non-alcoholic fatty liver disease (NAFLD) and diet"
+    - "tirzepatide vs semaglutide efficacy"
