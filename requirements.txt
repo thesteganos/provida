@@ -1,0 +1,28 @@
+# Frameworks de Orquestração e IA
+langchain
+langgraph
+langchain-community
+langchain-google-genai
+
+# Servidor de API
+fastapi
+uvicorn[standard]
+
+# Banco de Dados e Vetores
+neo4j
+faiss-cpu
+
+# Embeddings Locais
+sentence-transformers
+
+# Manipulação de Dados e Configuração
+python-dotenv
+pyyaml
+
+# Carregamento de Documentos
+unstructured
+pypdf
+
+# Agente de Pesquisa Autônomo
+schedule
+pymed
