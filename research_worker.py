@@ -1,21 +1,26 @@
+# research_worker.py
 import schedule
 import time
 import os
-from langchain_community.tools import PubMedQueryRun
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
+import hashlib
 from urllib.request import urlretrieve
 from dotenv import load_dotenv
 
 # Carrega o ambiente antes de tudo
 load_dotenv()
 
+# --- IMPORTAÇÃO CORRIGIDA ---
+from langchain_community.tools.pubmed.tool import PubMedQueryRun
+# -----------------------------
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.output_parsers import PydanticOutputParser
+
 from config_loader import config
 from kb_manager import kb_manager
 
 # --- Modelos Pydantic para Saídas Estruturadas ---
-
 class ArticleAnalysis(BaseModel):
     is_relevant: bool = Field(description="True se o artigo for clinicamente relevante para os temas de interesse.")
     summary_pt: str = Field(description="Um resumo conciso do artigo, traduzido para o português.")
@@ -23,7 +28,6 @@ class ArticleAnalysis(BaseModel):
     pdf_url: str = Field(description="URL direta para o PDF, se disponível, caso contrário 'N/A'.")
 
 # --- Lógica do Agente ---
-
 class ResearchAgent:
     def __init__(self):
         self.pubmed_tool = PubMedQueryRun()
@@ -51,13 +55,13 @@ class ResearchAgent:
         self.analyzer_chain = self.analysis_prompt | self.analyzer_llm | self.analysis_parser
 
     def _get_pdf_url_from_pubmed_entry(self, pubmed_entry: str) -> str:
-        # Lógica simplificada para encontrar um link de PDF
         lines = pubmed_entry.split('\n')
         for line in lines:
             if "pdf" in line.lower() and "http" in line:
-                # Extrai a primeira URL que encontrar
-                url = line[line.find("http"):]
-                return url.split(' ')[0]
+                url_start = line.find("http")
+                if url_start != -1:
+                    url = line[url_start:]
+                    return url.split(' ')[0].strip()
         return "N/A"
 
     def run_research_cycle(self):
@@ -70,19 +74,17 @@ class ResearchAgent:
         for topic in topics:
             print(f"\n[Pesquisando] Tema: '{topic}'")
             try:
-                # O PubMedQueryRun busca no PubMed e retorna resumos em inglês
-                search_results = self.pubmed_tool.run(f"{topic} AND (randomized controlled trial OR meta-analysis OR guideline)")
+                search_query = f'({topic}) AND (("randomized controlled trial"[Publication Type]) OR ("meta-analysis"[Publication Type]) OR ("guideline"[Publication Type]))'
+                search_results = self.pubmed_tool.run(search_query)
                 
-                # O resultado é uma string, precisamos dividi-la em artigos individuais
                 articles = search_results.strip().split('Published:')
                 articles = ["Published:" + article for article in articles if article.strip()]
                 
                 print(f"Encontrados {len(articles)} artigos para o tema.")
 
                 for i, article_text in enumerate(articles[:max_docs]):
-                    print(f"  [Analisando] Artigo {i+1}/{max_docs}...")
+                    print(f"  [Analisando] Artigo {i+1}/{len(articles[:max_docs])}...")
                     
-                    # Analisa o artigo com o LLM
                     analysis = self.analyzer_chain.invoke({
                         "topics": ", ".join(topics),
                         "abstract": article_text
@@ -90,7 +92,6 @@ class ResearchAgent:
 
                     if analysis.is_relevant:
                         print(f"  -> Relevante: {analysis.reasoning}")
-                        # Tenta baixar e ingerir o artigo
                         pdf_url = self._get_pdf_url_from_pubmed_entry(article_text)
                         if pdf_url != "N/A":
                             self.download_and_ingest(pdf_url)
@@ -110,8 +111,7 @@ class ResearchAgent:
             download_dir = os.path.join("knowledge_sources", "downloads")
             os.makedirs(download_dir, exist_ok=True)
             
-            # Gera um nome de arquivo único
-            filename = url.split('/')[-1]
+            filename = url.split('/')[-1].split('?')[0] # Limpa parâmetros de URL
             if not filename.endswith('.pdf'):
                 filename = f"{hashlib.sha1(url.encode()).hexdigest()}.pdf"
             
@@ -120,7 +120,6 @@ class ResearchAgent:
             print(f"  [Baixando] Artigo de {url} para {file_path}")
             urlretrieve(url, file_path)
 
-            # Envia para o kb_manager para processamento e deduplicação
             result = kb_manager.ingest_new_document(file_path)
             print(f"  [Ingestão] Resultado: {result}")
 
@@ -130,14 +129,14 @@ class ResearchAgent:
 if __name__ == "__main__":
     agent = ResearchAgent()
     
-    # Executa uma vez imediatamente ao iniciar
-    agent.run_research_cycle()
-    
-    # Agenda a execução periódica
     run_interval = config._config.get('research_agent', {}).get('run_interval_hours', 24)
-    print(f"\nAgendando a execução do ciclo de pesquisa a cada {run_interval} horas.")
+    print(f"Agendando a execução do ciclo de pesquisa a cada {run_interval} horas.")
     schedule.every(run_interval).hours.do(agent.run_research_cycle)
+    
+    # Executa uma vez imediatamente ao iniciar para testes
+    print("Executando o primeiro ciclo de pesquisa imediatamente...")
+    agent.run_research_cycle()
 
     while True:
         schedule.run_pending()
-        time.sleep(60) # Verifica a cada minuto se há uma tarefa agendada para rodar
+        time.sleep(60)
