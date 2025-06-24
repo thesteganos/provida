@@ -45,7 +45,8 @@ cd provida-app
 Primeiro, instale todas as dependências necessárias:
 
 ```bash
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 Em seguida, configure suas credenciais. Renomeie o arquivo `.env.example` para `.env` (se você criar um) ou crie um novo arquivo `.env` e preencha com suas chaves:
 
