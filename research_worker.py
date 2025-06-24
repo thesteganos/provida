@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- IMPORTAÇÃO CORRIGIDA ---
-from langchain_community.tools.pubmed.tool import PubMedQueryRun
+from langchain_community.tools.pubmed.tool import PubmedQueryRun
 # -----------------------------
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -30,7 +30,7 @@ class ArticleAnalysis(BaseModel):
 # --- Lógica do Agente ---
 class ResearchAgent:
     def __init__(self):
-        self.pubmed_tool = PubMedQueryRun()
+        self.pubmed_tool = PubmedQueryRun()
         self.analyzer_llm = config.get_llm("critique_agent") # Reutilizando um modelo rápido
         self.analysis_parser = PydanticOutputParser(pydantic_object=ArticleAnalysis)
         self.analysis_prompt = ChatPromptTemplate.from_template(
