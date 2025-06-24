@@ -1,7 +1,7 @@
 # Frameworks de Orquestração e IA
-langchain
+langchain>=0.1.0
 langgraph
-langchain-community
+langchain-community>=0.0.32
 langchain-google-genai
 
 # Servidor de API
@@ -25,4 +25,4 @@ pypdf
 
 # Agente de Pesquisa Autônomo
 schedule
-pymed
+xmltodict
