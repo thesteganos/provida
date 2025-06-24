@@ -1,7 +1,9 @@
 # agents.py
+import logging
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain.output_parsers import OutputFixingParser # Importação adicionada
 from prompts import ANAMNESIS_PROMPT, DIAGNOSIS_PROMPT, PLANNING_PROMPT, VERIFICATION_PROMPT
 from tools import patient_kg_query_tool, rag_evidence_search_tool
 from kb_manager import kb_manager
@@ -23,17 +25,40 @@ llms = {
     "anamnesis": config.get_llm("anamnesis_agent"),
     "diagnosis": config.get_llm("diagnosis_agent").bind_tools([patient_kg_query_tool]),
     "planning": config.get_llm("planning_agent").bind_tools([rag_evidence_search_tool]),
-    "verification": config.get_llm("verification_agent").bind_tools([rag_evidence_search_tool])
+    "verification": config.get_llm("verification_agent") # .bind_tools removido pois o OutputFixingParser não lida bem com tools na LLM diretamente
 }
 
 async def run_anamnesis_agent(state):
     print("---EXECUTANDO AGENTE DE ANAMNESE---")
+    anamnesis_llm = llms["anamnesis"]
     parser = PydanticOutputParser(pydantic_object=StructuredPatientData)
-    prompt = ChatPromptTemplate.from_template(ANAMNESIS_PROMPT + "\n\n{format_instructions}", partial_variables={"format_instructions": parser.get_format_instructions()})
-    chain = prompt | llms["anamnesis"] | parser
-    structured_data = await config.throttled_google_acall(chain, {"patient_data": state['patient_data']})
-    kb_manager.add_patient_data(state['patient_id'], structured_data.dict())
-    return {"patient_data_structured": structured_data.dict()}
+    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=anamnesis_llm)
+
+    prompt_template = ChatPromptTemplate.from_template(
+        ANAMNESIS_PROMPT + "\n\n{format_instructions}",
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    chain = prompt_template | anamnesis_llm
+
+    try:
+        response = await config.throttled_google_acall(chain, {"patient_data": state['patient_data']})
+        structured_data = parser.parse(response.content)
+    except Exception as e:
+        logging.warning(f"Falha no parsing inicial do agente de anamnese: {e}. Tentando corrigir...")
+        try:
+            # A resposta do LLM está em response.content
+            structured_data = output_fixing_parser.parse(response.content)
+            logging.info("Parsing corrigido com sucesso pelo OutputFixingParser.")
+        except Exception as e_fix:
+            logging.error(f"Falha ao corrigir o parsing do agente de anamnese: {e_fix}")
+            # Retorna um estado de erro ou um dicionário indicando a falha
+            return {"patient_data_structured": None, "error_anamnesis": str(e_fix)}
+
+    if structured_data:
+        kb_manager.add_patient_data(state['patient_id'], structured_data.dict())
+        return {"patient_data_structured": structured_data.dict()}
+    else: # Caso OutputFixingParser também não consiga (embora ele tenda a levantar exceção)
+        return {"patient_data_structured": None, "error_anamnesis": "Falha no parsing e na correção."}
 
 async def run_diagnosis_agent(state):
     print("---EXECUTANDO AGENTE DE DIAGNÓSTICO---")
@@ -53,8 +78,35 @@ async def run_planning_agent(state):
 
 async def run_verification_agent(state):
     print("---EXECUTANDO AGENTE DE VERIFICAÇÃO---")
+    verification_llm = llms["verification"] # LLM para o agente
     parser = PydanticOutputParser(pydantic_object=VerificationResult)
-    prompt = ChatPromptTemplate.from_template(VERIFICATION_PROMPT + "\n\n{format_instructions}", partial_variables={"format_instructions": parser.get_format_instructions()})
-    chain = prompt | llms["verification"] | parser
-    verification_result = await config.throttled_google_acall(chain, {"plan": state['plan']})
-    return {"verification": verification_result.dict()}
+    # O OutputFixingParser precisa de um LLM para tentar corrigir a saída
+    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=verification_llm)
+
+    prompt_template = ChatPromptTemplate.from_template(
+        VERIFICATION_PROMPT + "\n\n{format_instructions}",
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    # A cadeia agora é prompt -> llm. O parser é aplicado depois.
+    chain = prompt_template | verification_llm
+
+    try:
+        response = await config.throttled_google_acall(chain, {"plan": state['plan']})
+        # Tentativa de parsing inicial
+        verification_result = parser.parse(response.content)
+    except Exception as e:
+        logging.warning(f"Falha no parsing inicial do agente de verificação: {e}. Tentando corrigir...")
+        try:
+            # Tenta corrigir usando OutputFixingParser
+            # A resposta do LLM (string) está em response.content
+            verification_result = output_fixing_parser.parse(response.content)
+            logging.info("Parsing corrigido com sucesso pelo OutputFixingParser para verificação.")
+        except Exception as e_fix:
+            logging.error(f"Falha ao corrigir o parsing do agente de verificação: {e_fix}")
+            # Retorna um estado de erro ou um dicionário indicando a falha
+            return {"verification": {"is_safe_to_proceed": False, "notes": f"Erro de parsing: {e_fix}", "confidence_score": 0.0, "error_verification": str(e_fix)}}
+
+    if verification_result:
+        return {"verification": verification_result.dict()}
+    else: # Caso OutputFixingParser também não consiga
+        return {"verification": {"is_safe_to_proceed": False, "notes": "Falha no parsing e na correção da verificação.", "confidence_score": 0.0, "error_verification": "Falha no parsing e na correção."}}

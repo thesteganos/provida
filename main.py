@@ -5,7 +5,8 @@ import os
 import shutil
 import uuid
 import langchain
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+import logging # Adicionado logging
+from fastapi import FastAPI, UploadFile, File, HTTPException # BackgroundTasks removido
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain.cache import InMemoryCache
@@ -54,22 +55,50 @@ async def query_knowledge_base(query: KnowledgeQuery):
         docs = await kb_manager.retriever.ainvoke(query.query)
         return KnowledgeResponse(source_documents=[DocumentSnippet.model_validate(doc.dict()) for doc in docs])
     except Exception as e:
+        logging.error(f"Erro ao consultar a base de conhecimento: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/knowledge/ingest")
-async def ingest_new_knowledge(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def ingest_new_knowledge(file: UploadFile = File(...)): # Removido BackgroundTasks
     if not (file.filename.endswith('.pdf') or file.filename.endswith('.txt')):
-        raise HTTPException(status_code=400, detail="Formato de arquivo inválido.")
+        raise HTTPException(status_code=400, detail="Formato de arquivo inválido. Apenas PDF e TXT são permitidos.")
+
     upload_dir = os.path.join("knowledge_sources", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, file.filename)
+
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        logging.info(f"Arquivo '{file.filename}' salvo em '{file_path}'.")
     except Exception as e:
+        logging.error(f"Não foi possível salvar o arquivo '{file.filename}' em '{file_path}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Não foi possível salvar o arquivo: {e}")
-    background_tasks.add_task(kb_manager.ingest_new_document, file_path=file_path)
-    return {"message": f"Arquivo '{file.filename}' recebido para ingestão em segundo plano."}
+
+    try:
+        # Chamada síncrona para ingestão
+        ingestion_result = kb_manager.ingest_new_document(file_path=file_path)
+        logging.info(f"Resultado da ingestão para '{file.filename}': {ingestion_result}")
+
+        # Verificar se o resultado indica algum tipo de erro ou aviso tratável
+        if "erro" in ingestion_result.lower() or "falha" in ingestion_result.lower() or "não encontrado" in ingestion_result.lower():
+            # Considerar um erro 4xx se for um problema com o arquivo em si, ou 5xx se for falha interna
+            raise HTTPException(status_code=422, detail=f"Processamento do documento '{file.filename}' resultou em: {ingestion_result}")
+
+        if "duplicado" in ingestion_result.lower() or "já existe" in ingestion_result.lower():
+             # Isso não é necessariamente um erro do servidor, mas uma condição do arquivo.
+             # Um status 200 com uma mensagem clara, ou um 202 Accepted, ou 409 Conflict podem ser apropriados.
+             # Usando 200 com mensagem detalhada.
+            return {"message": f"Arquivo '{file.filename}' processado.", "detail": ingestion_result}
+
+        return {"message": f"Arquivo '{file.filename}' ingerido com sucesso.", "detail": ingestion_result}
+    except HTTPException as http_exc: # Repassa HTTPExceptions
+        raise http_exc
+    except Exception as e:
+        logging.error(f"Erro durante a ingestão do documento '{file.filename}': {e}", exc_info=True)
+        # Remove o arquivo se a ingestão falhou para evitar reprocessamento automático se não desejado.
+        # os.remove(file_path) # Descomentar se este for o comportamento desejado.
+        raise HTTPException(status_code=500, detail=f"Erro interno durante a ingestão do documento: {e}")
 
 if __name__ == "__main__":
     import uvicorn

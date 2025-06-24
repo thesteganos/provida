@@ -1,4 +1,5 @@
 # graph.py
+import logging # Adicionado logging
 from typing import TypedDict, Dict, Any, Optional
 from langgraph.graph import StateGraph, END
 
@@ -47,21 +48,46 @@ def should_replan(state: AgentState) -> str:
         'replan': Se o plano precisar de correções.
     """
     print("---ROTEANDO APÓS VERIFICAÇÃO---")
-    verification_result = state.get("verification", {})
+    verification_result = state.get("verification")
+
+    if not isinstance(verification_result, dict):
+        logging.error(f"Campo 'verification' ausente ou não é um dicionário no estado: {verification_result}")
+        # Decide por um caminho seguro: não prosseguir e não tentar replanejar sem dados válidos.
+        # Poderia também ir para um nó de erro específico se o grafo tivesse um.
+        # Por ora, vamos tratar como se a verificação tivesse falhado de forma crítica.
+        state['replan_instructions'] = "Falha crítica: Dados de verificação ausentes ou inválidos. Revisão manual necessária."
+        # Ou, para evitar loop se o problema for persistente, poderia ir direto para 'finalize'
+        # e o finalize_response teria que lidar com a ausência de um plano verificado.
+        # Optando por não replanejar se a verificação em si falhou de forma estrutural.
+        return "finalize" # Sinaliza para finalizar, mas o plano não será o ideal.
+
     is_safe = verification_result.get("is_safe_to_proceed", False)
     
+    # Logging adicional para o caso de erro de parsing no agente de verificação
+    if "error_verification" in verification_result:
+        logging.warning(f"Erro detectado durante a etapa de verificação: {verification_result['error_verification']}")
+        # Mesmo que is_safe_to_proceed seja True por algum motivo (ex: default do Pydantic),
+        # um erro de parsing é um sinal para não confiar cegamente.
+        is_safe = False
+
+    if not isinstance(is_safe, bool):
+        logging.warning(f"'is_safe_to_proceed' com tipo inesperado: {is_safe}. Tratando como False.")
+        is_safe = False
+
     if is_safe:
-        print("Plano verificado como seguro. Finalizando o fluxo.")
+        logging.info("Plano verificado como seguro. Finalizando o fluxo.")
         return "finalize"
     else:
-        print("Plano inseguro ou com baixa confiança. Enviando para replanejamento.")
-        # Cria instruções claras para o próximo ciclo de planejamento
+        logging.info("Plano inseguro, com baixa confiança ou erro na verificação. Enviando para replanejamento.")
+        notes = verification_result.get('notes', 'Nenhuma nota fornecida ou erro na obtenção das notas.')
+        if "error_verification" in verification_result:
+            notes = f"Erro durante a verificação: {verification_result['error_verification']}. Notas originais: {notes}"
+
         replan_instructions = (
-            "ATENÇÃO: O plano anterior foi rejeitado pela verificação de qualidade. "
-            f"Notas da verificação: '{verification_result.get('notes', 'Nenhuma nota fornecida.')}'. "
-            "Por favor, gere um novo plano de tratamento que corrija esses problemas específicos."
+            "ATENÇÃO: O plano anterior foi rejeitado ou encontrou um erro durante a verificação de qualidade. "
+            f"Notas/Erro da verificação: '{notes}'. "
+            "Por favor, gere um novo plano de tratamento que corrija esses problemas específicos ou considere as falhas apontadas."
         )
-        # Atualiza o estado com as instruções para o próximo nó
         state['replan_instructions'] = replan_instructions
         return "replan"
 
