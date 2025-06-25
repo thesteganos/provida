@@ -25,7 +25,6 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredFileLoader
 from langchain_community.vectorstores import FAISS
-# MODIFICADO: Importando Neo4jGraph do local correto.
 from langchain_community.graphs import Neo4jGraph
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -33,7 +32,6 @@ import numpy as np
 
 # Módulos locais
 from config_loader import config
-# A importação do graph.py local foi removida pois não era a fonte correta.
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +54,12 @@ class KnowledgeBaseManager:
         logger.info("Inicializando KnowledgeBaseManager...")
 
         # Carrega configurações do arquivo YAML
-        self.rag_config = config.get_rag_config()
-        self.model_config = config.get_model_config('embedding')
-        self.neo4j_config = config.get_neo4j_config() # Pega a config do Neo4j
+        # MODIFICADO: Acessando a configuração através do dicionário _config.
+        self.rag_config = config._config.get('rag', {})
+        self.model_config = config._config.get('models', {}).get('embedding', {})
+        self.neo4j_config = config._config.get('neo4j', {})
 
         # Inicializa o cliente Neo4j
-        # MODIFICADO: Instanciando a classe Neo4jGraph importada com as credenciais corretas.
         try:
             self.graph = Neo4jGraph(
                 url=self.neo4j_config.get("uri"),
