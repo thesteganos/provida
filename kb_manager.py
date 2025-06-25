@@ -72,10 +72,10 @@ class KnowledgeBaseManager:
 
         # Inicializa o modelo de embedding
         try:
-            # MODIFICADO: Passando a chave de API correta, que foi carregada do .env pelo config_loader.
+            # REVERTIDO: Esta forma agora funcionará, pois o config_loader injeta a chave no model_config.
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model=self.model_config.get("name", "models/embedding-001"),
-                google_api_key=config.google_api_key
+                google_api_key=self.model_config.get("api_key")
             )
             logger.info(f"Modelo de embedding '{self.model_config.get('name')}' carregado.")
         except Exception as e:
