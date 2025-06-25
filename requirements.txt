@@ -4,6 +4,7 @@ langgraph
 langchain-community
 langchain-google-genai
 langchain-neo4j
+langchain-huggingface
 
 # Servidor de API
 fastapi
