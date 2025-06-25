@@ -1,5 +1,3 @@
-
-**Arquivo: `main.py`**```python
 # main.py
 """
 Este módulo implementa a API FastAPI para a aplicação PROVIDA.
