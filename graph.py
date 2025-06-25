@@ -19,9 +19,10 @@ Principais componentes:
 import logging
 from typing import TypedDict, List, Annotated
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite import SqliteSaver # Para persistência do estado
+# MODIFICADO: A importação do SqliteSaver foi corrigida para o novo caminho.
+from langgraph.checkpoints import SqliteSaver # Para persistência do estado
 
-# MODIFICADO: A importação de 'agents' foi removida do topo para quebrar a dependência circular.
+# A importação de 'agents' foi removida do topo para quebrar a dependência circular.
 # A importação será feita dentro da função que a utiliza.
 
 logger = logging.getLogger(__name__)
@@ -79,9 +80,6 @@ class TherapeuticWorkflowGraph:
             }
         )
         
-        # A aresta de verificação em si não é mais necessária aqui,
-        # pois a lógica está contida no 'conditional_edges' acima.
-
         # Compila o grafo com o checkpointer para persistência de estado
         return workflow.compile(checkpointer=self.memory)
 
