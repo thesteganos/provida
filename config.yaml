@@ -55,3 +55,7 @@ research_agent:
     - "metabolic syndrome new diagnostic criteria"
     - "non-alcoholic fatty liver disease (NAFLD) and diet"
     - "tirzepatide vs semaglutide efficacy"
+
+entrez_api:
+  email: "SEU_EMAIL_AQUI@exemplo.com"
+  api_key: "SUA_CHAVE_DE_API_AQUI"
