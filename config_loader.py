@@ -18,7 +18,8 @@ import os
 import logging
 from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAI
-from typing import Dict, Any, Optional
+# MODIFICADO: A importação de 'List' foi adicionada.
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class ConfigLoader:
                 if agent_config.get('provider') == 'google' and not agent_config.get('api_key'):
                     agent_config['api_key'] = self.google_api_key
         
-        # MODIFICADO: Adicionada a lógica para injetar a chave de API também nos modelos de embedding.
+        # Injeta a chave de API também nos modelos de embedding
         if self._config.get('models'):
             for model_type, model_config in self._config['models'].items():
                 if model_config.get('provider') == 'google' and not model_config.get('api_key'):
