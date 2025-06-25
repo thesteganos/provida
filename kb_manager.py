@@ -54,7 +54,6 @@ class KnowledgeBaseManager:
         logger.info("Inicializando KnowledgeBaseManager...")
 
         # Carrega configurações do arquivo YAML
-        # MODIFICADO: Acessando a configuração através do dicionário _config.
         self.rag_config = config._config.get('rag', {})
         self.model_config = config._config.get('models', {}).get('embedding', {})
         self.neo4j_config = config._config.get('neo4j', {})
@@ -73,9 +72,10 @@ class KnowledgeBaseManager:
 
         # Inicializa o modelo de embedding
         try:
+            # MODIFICADO: Passando a chave de API correta, que foi carregada do .env pelo config_loader.
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model=self.model_config.get("name", "models/embedding-001"),
-                google_api_key=self.model_config.get("api_key")
+                google_api_key=config.google_api_key
             )
             logger.info(f"Modelo de embedding '{self.model_config.get('name')}' carregado.")
         except Exception as e:
@@ -101,11 +101,10 @@ class KnowledgeBaseManager:
         if os.path.exists(self.faiss_persist_path) and os.path.exists(os.path.join(self.faiss_persist_path, "index.faiss")):
             try:
                 logger.info(f"Carregando vector store FAISS de '{self.faiss_persist_path}'...")
-                # FAISS.load_local requer que allow_dangerous_deserialization seja definido
                 return FAISS.load_local(
                     self.faiss_persist_path,
                     self.embeddings,
-                    allow_dangerous_deserialization=True # Necessário para carregar o index.pkl
+                    allow_dangerous_deserialization=True
                 )
             except Exception as e:
                 logger.error(f"Erro ao carregar o vector store FAISS: {e}. Um novo será criado se necessário.", exc_info=True)
@@ -156,7 +155,6 @@ class KnowledgeBaseManager:
         self.graph.query(query, params)
         logger.info(f"Dados do paciente {patient_id} adicionados/atualizados no grafo.")
 
-
     def ingest_new_document(self, file_path: str) -> str:
         """
         Processa e ingere um novo documento (PDF, etc.) na base de conhecimento.
@@ -168,7 +166,6 @@ class KnowledgeBaseManager:
 
         file_hash = self._get_file_hash(file_path)
 
-        # Consulta o Neo4j para ver se este hash de arquivo já existe
         if self.graph.query("MATCH (d:Document {hash: $hash}) RETURN d", {"hash": file_hash}):
             logger.warning(f"Documento '{os.path.basename(file_path)}' com hash {file_hash} já existe no grafo. Ingestão pulada.")
             return f"Documento já existe (hash: {file_hash[:8]})"
@@ -176,26 +173,21 @@ class KnowledgeBaseManager:
         logger.info(f"Iniciando ingestão do novo documento: {file_path}")
         
         try:
-            # Seleciona o loader apropriado com base na extensão do arquivo
             file_ext = os.path.splitext(file_path)[1].lower()
             if file_ext == '.pdf':
                 loader = PyPDFLoader(file_path)
             else:
-                # UnstructuredFileLoader pode lidar com .txt, .md, etc.
                 loader = UnstructuredFileLoader(file_path)
             
             documents = loader.load()
 
-            # Extrai o texto para verificação de duplicidade semântica
             full_text = " ".join([doc.page_content for doc in documents])
             if not full_text.strip():
                 logger.warning(f"O documento '{file_path}' está vazio ou não contém texto extraível.")
                 return "Documento vazio ou sem texto"
 
-            # Verificação de duplicidade semântica antes de processar
             if self.is_semantically_duplicate(full_text):
                  logger.warning(f"Documento '{file_path}' é semanticamente similar a um existente. Ingestão pulada.")
-                 # Ainda assim, cria o nó do documento para rastrear que ele foi visto
                  self.create_document_node(
                     file_path=file_path,
                     file_hash=file_hash,
@@ -203,26 +195,19 @@ class KnowledgeBaseManager:
                  )
                  return "Duplicidade semântica detectada"
 
-
-            # Divide os documentos em chunks
             chunks = self.text_splitter.split_documents(documents)
             logger.info(f"Documento dividido em {len(chunks)} chunks.")
 
-            # Adiciona os chunks ao vector store
             if self.vector_store is None:
-                # Cria um novo vector store se for o primeiro documento
                 logger.info("Criando novo vector store FAISS...")
                 self.vector_store = FAISS.from_documents(chunks, self.embeddings)
             else:
-                # Adiciona ao vector store existente
                 logger.info("Adicionando chunks ao vector store FAISS existente...")
                 self.vector_store.add_documents(chunks)
 
-            # Salva o índice FAISS e os metadados no disco
             self.vector_store.save_local(self.faiss_persist_path)
             logger.info(f"Vector store FAISS salvo em '{self.faiss_persist_path}'.")
 
-            # Cria um nó no Neo4j para rastrear o documento processado
             self.create_document_node(
                 file_path=file_path,
                 file_hash=file_hash,
@@ -241,7 +226,7 @@ class KnowledgeBaseManager:
         Retorna True se a similaridade com o documento mais próximo estiver acima do limiar.
         """
         if self.vector_store is None:
-            return False # Não há nada para comparar
+            return False
 
         if threshold is None:
             threshold = self.rag_config.get('semantic_similarity_threshold', 0.95)
@@ -265,7 +250,6 @@ class KnowledgeBaseManager:
             logger.error(f"Erro durante a verificação de duplicidade semântica: {e}", exc_info=True)
             return False
 
-
     def rag_query(self, query: str) -> str:
         """
         Realiza uma busca RAG na base de conhecimento.
@@ -275,18 +259,15 @@ class KnowledgeBaseManager:
             return "A base de conhecimento (vector store) ainda não foi criada. Por favor, ingira documentos primeiro."
         
         try:
-            # Usa o vector store como um retriever
             retriever = self.vector_store.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": self.rag_config.get('top_k_results', 3)}
             )
-            # Busca por documentos relevantes
             relevant_docs = retriever.get_relevant_documents(query)
 
             if not relevant_docs:
                 return "Nenhuma informação relevante encontrada na base de conhecimento para este tópico."
 
-            # Formata a resposta com o conteúdo e a fonte dos documentos
             context_str = "\n\n---\n\n".join(
                 [f"Fonte: {os.path.basename(doc.metadata.get('source', 'desconhecida'))}\n\nConteúdo: {doc.page_content}" for doc in relevant_docs]
             )
@@ -295,10 +276,8 @@ class KnowledgeBaseManager:
             logger.error(f"Erro durante a consulta RAG para query '{query[:50]}...': {e}", exc_info=True)
             return f"Erro ao consultar a base de conhecimento: {e}"
 
-# Cria uma instância única do manager para ser usada em todo o sistema
 try:
     kb_manager = KnowledgeBaseManager()
 except RuntimeError as e:
     logger.critical(f"Falha crítica na inicialização do KnowledgeBaseManager: {e}")
-    # Em um cenário real, você pode querer que a aplicação pare aqui ou entre em um modo de falha seguro.
-    kb_manager = None # Garante que a variável exista mas seja None, para que outras partes possam verificar.
+    kb_manager = None
