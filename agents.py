@@ -23,7 +23,8 @@ from langchain_core.exceptions import OutputParserException
 from langchain.output_parsers import OutputFixingParser
 from prompts import ANAMNESIS_PROMPT, DIAGNOSIS_PROMPT, PLANNING_PROMPT, VERIFICATION_PROMPT
 from tools import patient_kg_query_tool, rag_evidence_search_tool
-from kb_manager import kb_manager
+# MODIFICADO: A importação do kb_manager foi removida do topo para quebrar a dependência circular.
+# from kb_manager import kb_manager
 from config_loader import config
 # from graph import AgentState # Potencial import para tipagem de 'state', cuidado com circularidade
 
@@ -75,6 +76,9 @@ async def run_anamnesis_agent(state: StateType) -> StateType:
     """
     Executa o agente de anamnese para coletar e estruturar os dados iniciais do paciente.
     """
+    # MODIFICADO: A importação é feita aqui, dentro da função.
+    from kb_manager import kb_manager
+    
     logger.debug("---EXECUTANDO AGENTE DE ANAMNESE---")
 
     patient_data_raw = state.get('patient_data')
@@ -117,8 +121,14 @@ async def run_anamnesis_agent(state: StateType) -> StateType:
 
     if structured_data:
         try:
-            kb_manager.add_patient_data(patient_id, structured_data.dict())
-            logger.info(f"Dados estruturados do paciente {patient_id} persistidos no KB.")
+            # A verificação 'if kb_manager:' garante que o módulo foi importado corretamente.
+            if kb_manager:
+                kb_manager.add_patient_data(patient_id, structured_data.dict())
+                logger.info(f"Dados estruturados do paciente {patient_id} persistidos no KB.")
+            else:
+                 logger.error(f"kb_manager não pôde ser importado dentro de run_anamnesis_agent.")
+                 return {"patient_data_structured": structured_data.dict(), "warning_anamnesis": "Dados estruturados mas falha ao importar KB Manager para salvar."}
+
             return {"patient_data_structured": structured_data.dict()}
         except Exception as e_kb:
             logger.error(f"Falha ao persistir dados da anamnese para {patient_id} no KB: {e_kb}", exc_info=True)
