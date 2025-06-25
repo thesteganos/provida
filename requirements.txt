@@ -1,7 +1,7 @@
 # Frameworks de Orquestração e IA
-langchain>=0.1.0
+langchain
 langgraph
-langchain-community>=0.0.32
+langchain-community
 langchain-google-genai
 
 # Servidor de API
