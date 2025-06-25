@@ -14,7 +14,8 @@ Ferramentas definidas:
 import logging
 from typing import List, Dict, Any, Union # Adicionado Union para o tipo de retorno
 from langchain_core.tools import tool
-from kb_manager import kb_manager
+# MODIFICADO: A importação do kb_manager foi removida do topo para quebrar a dependência circular.
+# from kb_manager import kb_manager
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,9 @@ def patient_kg_query_tool(patient_id: str) -> Union[List[Dict[str, Any]], str]:
                                            Exemplo de sucesso: `[{'p': {'id': 'xyz', 'name': 'Fulano', ...}}]`
                                            Exemplo de erro: `"Erro ao consultar KG: <detalhes>"`
     """
+    # MODIFICADO: A importação é feita aqui, dentro da função.
+    from kb_manager import kb_manager
+
     if not patient_id or not isinstance(patient_id, str):
         logger.warning("patient_kg_query_tool: patient_id inválido ou ausente.")
         return "Erro: ID do paciente inválido ou não fornecido para a busca no KG."
@@ -47,7 +51,7 @@ def patient_kg_query_tool(patient_id: str) -> Union[List[Dict[str, Any]], str]:
 
     logger.debug(f"Executando query parametrizada no KG para patient_id='{patient_id}'")
 
-    if kb_manager.graph:
+    if kb_manager and kb_manager.graph: # Adicionada verificação se kb_manager foi carregado
         try:
             # A resposta de graph.query() é geralmente uma lista de registros (dicts)
             result: List[Dict[str, Any]] = kb_manager.graph.query(cypher_query, params=params)
@@ -60,7 +64,7 @@ def patient_kg_query_tool(patient_id: str) -> Union[List[Dict[str, Any]], str]:
             # Retorna uma string de erro que o LLM pode processar
             return f"Erro ao consultar a base de dados do paciente: {e}"
     else:
-        logger.error(f"patient_kg_query_tool: Neo4j graph não está disponível. Patient ID: {patient_id}")
+        logger.error(f"patient_kg_query_tool: Neo4j graph ou kb_manager não estão disponíveis. Patient ID: {patient_id}")
         return "Erro: A conexão com a base de dados de pacientes (Neo4j) não está disponível."
 
 @tool
@@ -81,11 +85,19 @@ def rag_evidence_search_tool(topic: str) -> str:
              informação foi encontrada se a busca não retornar resultados, ou uma
              mensagem de erro se a busca falhar.
     """
+    # MODIFICADO: A importação é feita aqui, dentro da função.
+    from kb_manager import kb_manager
+
     if not topic or not isinstance(topic, str):
         logger.warning("rag_evidence_search_tool: 'topic' inválido ou ausente.")
         return "Erro: Tópico de busca inválido ou não fornecido para a pesquisa de evidências."
 
     logger.debug(f"Executando busca RAG para o tópico: '{topic[:100]}...'")
+
+    if not kb_manager:
+        logger.error("rag_evidence_search_tool: kb_manager não está disponível.")
+        return "Erro: O Gerenciador da Base de Conhecimento não está disponível."
+        
     try:
         return kb_manager.rag_query(topic)
     except Exception as e:
