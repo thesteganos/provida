@@ -14,13 +14,13 @@ Agentes definidos:
 import logging
 from typing import List
 
-# MODIFICADO: Importando de pydantic.v1 para corrigir o aviso de deprecação
 from pydantic.v1 import BaseModel, Field
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain_core.messages import BaseMessage
 
 # Módulos locais
-from prompts import CLINICAL_AGENT_PROMPT
+# MODIFICADO: O nome da variável importada foi corrigido.
+from prompts import CLINICAL_AGENT_SYSTEM_PROMPT
 from tools import patient_kg_query_tool, rag_evidence_search_tool
 from config_loader import config
 
@@ -48,7 +48,8 @@ try:
     clinical_agent = create_openai_tools_agent(
         llm=llm,
         tools=clinical_agent_tools,
-        prompt=CLINICAL_AGENT_PROMPT
+        # MODIFICADO: O nome da variável usada no prompt foi corrigido.
+        prompt=CLINICAL_AGENT_SYSTEM_PROMPT
     )
     # Cria o executor do agente, que efetivamente roda os ciclos de pensamento/ação
     clinical_agent_executor = AgentExecutor(
