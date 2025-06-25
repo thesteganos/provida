@@ -19,8 +19,8 @@ Principais componentes:
 import logging
 from typing import TypedDict, List, Annotated
 from langgraph.graph import StateGraph, END
-# MODIFICADO: A importação do SqliteSaver foi corrigida para o caminho definitivo no pacote langchain_community.
-from langchain_community.checkpoints import SqliteSaver # Para persistência do estado
+# MODIFICADO: Substituído SqliteSaver por MemorySaver para um checkpointer em memória.
+from langgraph.checkpoint.memory import MemorySaver
 
 # A importação de 'agents' foi removida do topo para quebrar a dependência circular.
 # A importação será feita dentro da função que a utiliza.
@@ -42,7 +42,8 @@ class TherapeuticWorkflowGraph:
     Constrói e gerencia o grafo de fluxo de trabalho terapêutico com LangGraph.
     """
     def __init__(self):
-        self.memory = SqliteSaver.from_conn_string(":memory:") # Checkpointer em memória
+        # MODIFICADO: Usando MemorySaver() para o checkpointer em memória.
+        self.memory = MemorySaver()
         self.graph_app = self._build_graph()
 
     def _build_graph(self):
