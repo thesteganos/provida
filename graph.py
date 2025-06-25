@@ -1,220 +1,140 @@
 # graph.py
 """
-Este módulo define e constrói o grafo de fluxo de trabalho (workflow) da aplicação PROVIDA.
+Este módulo define o grafo de execução do sistema PROVIDA usando LangGraph.
 
-Utilizando LangGraph, ele orquestra a execução sequencial e condicional dos diferentes
-agentes (anamnese, diagnóstico, planejamento, verificação). O grafo gerencia o estado
-da aplicação, passando informações entre os nós (agentes) e tomando decisões
-de roteamento com base nos resultados intermediários.
+O grafo define o fluxo de controle entre os diferentes agentes de IA.
+Cada nó no grafo representa um agente (uma função que realiza uma tarefa),
+e as arestas representam as transições condicionais entre eles, com base
+no estado atual do processo.
+
+Principais componentes:
+- `AgentState`: Um dicionário tipado (TypedDict) que define a estrutura de dados
+  do estado que é passado entre os nós do grafo.
+- `TherapeuticWorkflowGraph`: Uma classe que encapsula a lógica de construção
+  e execução do grafo LangGraph.
+- Nós para cada agente: `run_anamnesis_agent`, `run_diagnosis_agent`, etc.
+- Lógica de transição condicional (`decide_next_step`) que determina o
+  próximo passo com base nos resultados do agente de verificação.
 """
 import logging
-from typing import TypedDict, Dict, Any, Optional, List
-from langgraph.graph import StateGraph, END, START # Importado START
+from typing import TypedDict, List, Annotated
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.sqlite import SqliteSaver # Para persistência do estado
 
-# Importa os agentes que serão os nós do nosso grafo
-from agents import (
-    run_anamnesis_agent,
-    run_diagnosis_agent,
-    run_planning_agent,
-    run_verification_agent,
-)
+# MODIFICADO: A importação de 'agents' foi removida do topo para quebrar a dependência circular.
+# A importação será feita dentro da função que a utiliza.
 
 logger = logging.getLogger(__name__)
 
-# --- Definição do Estado do Grafo ---
+# Definição do estado do grafo usando TypedDict para clareza e verificação de tipos.
 class AgentState(TypedDict):
-    """
-    Define a estrutura de dados para o estado compartilhado entre os agentes.
-    Todos os campos, exceto os de entrada inicial, são opcionais, pois são
-    preenchidos incrementalmente ou podem falhar.
-    """
-    # Entradas Iniciais (obrigatórias ao iniciar o grafo)
     patient_id: str
-    patient_data: Dict[str, Any]
+    patient_data: str # Dados brutos iniciais
+    patient_data_structured: dict # Dados após o agente de anamnese
+    diagnosis: str # Resultado do agente de diagnóstico
+    plan: str # Resultado do agente de planejamento
+    verification: dict # Resultado (dicionário) do agente de verificação
+    replan_instructions: Annotated[List[str], lambda x, y: x + y] # Acumula instruções de replanejamento
 
-    # Saídas dos Agentes (opcionais)
-    patient_data_structured: Optional[Dict[str, Any]]
-    diagnosis: Optional[str]
-    plan: Optional[str]
-    verification: Optional[Dict[str, Any]] # Contém is_safe_to_proceed, notes, confidence_score
-    replan_instructions: Optional[str]
-    final_response: Optional[str]
-
-    # Campos de Erro/Aviso (para rastreamento e relatório)
-    error_anamnesis: Optional[str]
-    error_diagnosis: Optional[str]
-    error_planning: Optional[str]
-    error_verification: Optional[str]
-    warning_anamnesis: Optional[str]
-    # Adicionar mais campos de erro/aviso conforme necessário para outros agentes/etapas
-
-
-# --- Nós de Lógica e Roteamento ---
-
-def route_after_anamnesis(state: AgentState) -> str:
-    """Decide para onde ir após a anamnese, baseado no sucesso da estruturação."""
-    if state.get("error_anamnesis") or not state.get("patient_data_structured"):
-        logger.warning(f"Erro ou falha na estruturação da anamnese para {state.get('patient_id')}. Pulando para finalização.")
-        return "finalize" # Ou um nó de erro dedicado se preferir
-    return "diagnosis"
-
-def route_after_diagnosis(state: AgentState) -> str:
-    """Decide para onde ir após o diagnóstico."""
-    if state.get("error_diagnosis") or not state.get("diagnosis"):
-        logger.warning(f"Erro ou ausência de diagnóstico para {state.get('patient_id')}. Pulando para finalização.")
-        return "finalize" # Ou um nó de erro dedicado
-    return "planning"
-
-def route_after_planning(state: AgentState) -> str:
-    """Decide para onde ir após o planejamento."""
-    if state.get("error_planning") or not state.get("plan"):
-        logger.warning(f"Erro ou ausência de plano para {state.get('patient_id')}. Pulando para finalização.")
-        return "finalize" # Ou um nó de erro dedicado
-    return "verification"
-
-
-def should_replan_or_finalize(state: AgentState) -> str:
+class TherapeuticWorkflowGraph:
     """
-    Decide se o fluxo de trabalho deve prosseguir para a finalização ou retornar ao planejamento.
-    Esta função é chamada após o nó de verificação.
+    Constrói e gerencia o grafo de fluxo de trabalho terapêutico com LangGraph.
     """
-    patient_id = state.get('patient_id', 'ID Desconhecido')
-    logger.debug(f"---ROTEANDO APÓS VERIFICAÇÃO PARA PACIENTE {patient_id}---")
-    
-    verification_output = state.get("verification")
+    def __init__(self):
+        self.memory = SqliteSaver.from_conn_string(":memory:") # Checkpointer em memória
+        self.graph_app = self._build_graph()
 
-    # Caso 1: O próprio agente de verificação falhou em produzir uma saída estruturada ou reportou um erro interno.
-    if not isinstance(verification_output, dict) or verification_output.get("error_verification"):
-        logger.error(f"Falha crítica ou erro no agente de verificação para {patient_id}. Detalhes: {verification_output}")
-        # Propaga o erro de verificação para o estado, se não já estiver lá por meio do próprio agente
-        if isinstance(verification_output, dict) and verification_output.get("error_verification"):
-            state['error_verification'] = verification_output.get("error_verification")
-        else: # Caso não seja dict, ou não tenha a chave error_verification
-            state['error_verification'] = state.get('error_verification', "Falha crítica na estrutura do resultado da verificação.")
-        return "finalize" # Finaliza, pois não se pode confiar na verificação para replanejar.
-
-    # Caso 2: A verificação foi concluída, mas o plano não é seguro ou precisa de ajustes.
-    is_safe = verification_output.get("is_safe_to_proceed", False)
-    if not isinstance(is_safe, bool): # Validação adicional
-        logger.warning(f"'is_safe_to_proceed' com tipo inesperado ({type(is_safe)}) para {patient_id}. Tratando como False.")
-        state['error_verification'] = (state.get('error_verification') or "") + " 'is_safe_to_proceed' com tipo inválido."
-        is_safe = False
-
-    if not is_safe: # Plano não seguro, precisa de replanejamento
-        logger.info(f"Plano para {patient_id} inseguro ou com baixa confiança. Enviando para replanejamento.")
-        notes_from_verification = verification_output.get('notes', 'Nenhuma nota de verificação fornecida.')
-        replan_instructions = (
-            "ATENÇÃO: O plano anterior foi rejeitado ou a verificação encontrou problemas. "
-            f"Notas da verificação: '{notes_from_verification}'. "
-            "Por favor, gere um novo plano de tratamento que corrija esses problemas."
+    def _build_graph(self):
+        """
+        Define a estrutura do grafo, incluindo nós e arestas.
+        """
+        # A importação é feita aqui para garantir que os módulos já estejam carregados.
+        from agents import (
+            run_anamnesis_agent,
+            run_diagnosis_agent,
+            run_planning_agent,
+            run_verification_agent
         )
-        state['replan_instructions'] = replan_instructions
-        return "replan"
 
-    # Caso 3: Plano verificado como seguro.
-    logger.info(f"Plano para {patient_id} verificado como seguro. Finalizando o fluxo.")
-    return "finalize"
+        workflow = StateGraph(AgentState)
 
+        # Adiciona os nós ao grafo, cada um correspondendo a um agente
+        workflow.add_node("anamnesis", run_anamnesis_agent)
+        workflow.add_node("diagnosis", run_diagnosis_agent)
+        workflow.add_node("planning", run_planning_agent)
+        workflow.add_node("verification", run_verification_agent)
 
-def finalize_workflow_response(state: AgentState) -> Dict[str, Any]:
-    """
-    Compila a resposta final consolidada, incluindo erros e avisos de todas as etapas.
-    Este é o nó final que prepara a saída do grafo.
-    """
-    patient_id = state.get('patient_id', 'ID Desconhecido')
-    logger.debug(f"---COMPILANDO RESPOSTA FINAL PARA PACIENTE {patient_id}---")
+        # Define as arestas (fluxo de execução)
+        workflow.set_entry_point("anamnesis")
+        workflow.add_edge("anamnesis", "diagnosis")
+        workflow.add_edge("diagnosis", "planning")
+        
+        # A transição após a verificação é condicional
+        workflow.add_conditional_edges(
+            "planning", # Começa no nó de planejamento
+            self.prepare_for_verification, # Primeiro executa esta função
+            {
+                "replan": "planning", # Se precisar replanejar, volta para o planejamento
+                "end": END # Se for seguro, termina o fluxo
+            }
+        )
+        
+        # A aresta de verificação em si não é mais necessária aqui,
+        # pois a lógica está contida no 'conditional_edges' acima.
 
-    final_report_parts: List[str] = []
-    final_report_parts.append(f"## Relatório Final para o Paciente: {patient_id} ##")
+        # Compila o grafo com o checkpointer para persistência de estado
+        return workflow.compile(checkpointer=self.memory)
 
-    # Coleta e formata erros e avisos de todas as etapas
-    error_messages: List[str] = []
-    warning_messages: List[str] = []
+    def prepare_for_verification(self, state: AgentState) -> str:
+        """
+        Função intermediária que chama o agente de verificação e então decide o próximo passo.
+        """
+        # Importação local para garantir que o agente esteja disponível
+        from agents import run_verification_agent
+        
+        # Roda a verificação como parte da lógica de transição
+        verification_result_state = run_verification_agent(state)
+        state.update(verification_result_state) # Atualiza o estado com o resultado da verificação
+        
+        verification_data = state.get("verification", {})
+        
+        if verification_data.get("is_safe_to_proceed", False):
+            logger.info(f"Verificação para paciente {state.get('patient_id')} aprovada. Finalizando fluxo.")
+            return "end"
+        else:
+            logger.warning(f"Verificação para paciente {state.get('patient_id')} falhou ou requer replanejamento. Voltando para o planejamento.")
+            # Prepara as instruções para o replanejamento
+            new_replan_instructions = f"Correção necessária: {verification_data.get('notes', 'N/A')}"
+            state["replan_instructions"] = state.get("replan_instructions", []) + [new_replan_instructions]
+            return "replan"
 
-    if err_ana := state.get('error_anamnesis'): error_messages.append(f"Anamnese: {err_ana}")
-    if warn_ana := state.get('warning_anamnesis'): warning_messages.append(f"Anamnese: {warn_ana}")
-    if err_diag := state.get('error_diagnosis'): error_messages.append(f"Diagnóstico: {err_diag}")
-    if err_plan := state.get('error_planning'): error_messages.append(f"Planejamento: {err_plan}")
-    if err_verif := state.get('error_verification'): error_messages.append(f"Verificação: {err_verif}")
-    # Adicionar mais conforme necessário
+    async def run_single_patient_flow(self, patient_id: str, initial_data: str):
+        """
+        Executa o fluxo completo do grafo para um único paciente.
+        """
+        logger.info(f"Iniciando fluxo de trabalho terapêutico para o paciente: {patient_id}")
+        
+        # Configuração da thread de execução (sessão)
+        config = {"configurable": {"thread_id": patient_id}}
+        
+        # Input inicial para o grafo
+        flow_input = {
+            "patient_id": patient_id,
+            "patient_data": initial_data,
+            "replan_instructions": [], # Inicializa a lista de instruções de replanejamento
+        }
+        
+        # Itera sobre a execução do grafo, mostrando o resultado de cada passo
+        final_state = None
+        async for s in self.graph_app.astream(flow_input, config=config):
+            final_state = s
+            logger.info("--- Estado Atual do Fluxo ---")
+            for key, value in s.items():
+                logger.info(f"[{key}]: {value}")
+            logger.info("----------------------------")
+            
+        logger.info(f"Fluxo de trabalho para o paciente {patient_id} concluído.")
+        return final_state
 
-    if error_messages:
-        final_report_parts.append("\n**Alertas Críticos Durante o Processamento:**")
-        final_report_parts.extend([f"- {msg}" for msg in error_messages])
-    if warning_messages:
-        final_report_parts.append("\n**Avisos Durante o Processamento:**")
-        final_report_parts.extend([f"- {msg}" for msg in warning_messages])
-
-    # Informações principais (diagnóstico e plano)
-    diagnosis_text = state.get('diagnosis', 'Diagnóstico não pôde ser gerado.')
-    if state.get('error_diagnosis'): diagnosis_text += f" (Detalhe do erro: {state.get('error_diagnosis')})"
-    final_report_parts.append(f"\n**Diagnóstico e Riscos Avaliados:**\n{diagnosis_text}")
-
-    plan_text = state.get('plan', 'Plano terapêutico não pôde ser gerado.')
-    if state.get('error_planning'): plan_text += f" (Detalhe do erro: {state.get('error_planning')})"
-    final_report_parts.append(f"\n**Plano Terapêutico Proposto:**\n{plan_text}")
-
-    # Resultado da Verificação
-    verification_output = state.get("verification")
-    if isinstance(verification_output, dict) and not verification_output.get("error_verification"):
-        final_report_parts.append("\n**Resultado da Verificação de Qualidade:**")
-        final_report_parts.append(f"  - Score de Confiança: {verification_output.get('confidence_score', 0.0):.2f}")
-        final_report_parts.append(f"  - Notas do Verificador: {verification_output.get('notes', 'N/A')}")
-        status_msg = "Seguro para prosseguir (segundo IA)." if verification_output.get('is_safe_to_proceed') else "Requer revisão ou não seguro para prosseguir."
-        final_report_parts.append(f"  - Status: {status_msg}")
-    elif state.get('error_verification'): # Se houve erro explícito na verificação
-         final_report_parts.append(f"\n**Resultado da Verificação de Qualidade:**\n  - Falha na Verificação: {state['error_verification']}")
-    else: # Se não houve erro explícito mas também não há resultado de verificação (ex: pulado)
-        final_report_parts.append("\n**Resultado da Verificação de Qualidade:**\n  - Etapa de verificação não concluída ou pulada.")
-
-    final_response_str = "\n\n".join(final_report_parts) # Adiciona mais espaço entre seções
-    logger.info(f"Resposta final compilada para paciente {patient_id}.")
-    # Atualiza o campo final_response no estado. O LangGraph retorna o estado final completo.
-    state['final_response'] = final_response_str
-    return state # Retorna o estado modificado, LangGraph lida com isso.
-
-
-# --- Construção do Grafo de Workflow ---
-logger.info("Construindo o workflow de agentes com LangGraph...")
-workflow = StateGraph(AgentState)
-
-# Adiciona os nós ao grafo
-workflow.add_node("anamnesis", run_anamnesis_agent)
-workflow.add_node("diagnosis", run_diagnosis_agent)
-workflow.add_node("planning", run_planning_agent)
-workflow.add_node("verification", run_verification_agent)
-workflow.add_node("finalize_response_node", finalize_workflow_response) # Nó final para compilar a resposta
-
-# Define o ponto de entrada
-workflow.set_entry_point("anamnesis") # Ou pode usar START e adicionar uma aresta de START para anamnesis
-
-# Define as arestas e roteamento condicional
-# Se qualquer etapa crítica falhar, ela pode ser roteada diretamente para finalize_response_node
-
-workflow.add_conditional_edges(
-    "anamnesis",
-    route_after_anamnesis,
-    {"diagnosis": "diagnosis", "finalize": "finalize_response_node"}
-)
-workflow.add_conditional_edges(
-    "diagnosis",
-    route_after_diagnosis,
-    {"planning": "planning", "finalize": "finalize_response_node"}
-)
-workflow.add_conditional_edges(
-    "planning",
-    route_after_planning,
-    {"verification": "verification", "finalize": "finalize_response_node"}
-)
-workflow.add_conditional_edges(
-    "verification",
-    should_replan_or_finalize, # Nome da função de roteamento atualizada
-    {"replan": "planning", "finalize": "finalize_response_node"}
-)
-
-# O nó 'finalize_response_node' é o último antes do fim.
-workflow.add_edge("finalize_response_node", END)
-
-# Compila o grafo
-provida_app = workflow.compile()
-logger.info("Workflow de agentes compilado e pronto para uso.")
+# Instância única do grafo para ser usada pela API
+therapeutic_workflow_graph = TherapeuticWorkflowGraph()
