@@ -1,0 +1,17 @@
+
+services:
+  neo4j:
+    image: neo4j:latest
+    container_name: provida_neo4j_db
+    ports:
+      - "7474:7474" # Porta para o Neo4j Browser
+      - "7687:7687" # Porta para a conexão Bolt (usada pela aplicação)
+    volumes:
+      - ./neo4j_data:/data
+    environment:
+      # Credenciais baseadas no seu arquivo config.yaml
+      NEO4J_AUTH: neo4j/password
+      
+      # Instala o plugin APOC e permite sua execução
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
