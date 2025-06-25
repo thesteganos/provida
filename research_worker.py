@@ -28,21 +28,18 @@ import hashlib
 import re
 import logging
 from urllib.request import Request, urlopen, HTTPError
-from urllib.parse import urlparse, urljoin # Adicionado urljoin
+from urllib.parse import urlparse, urljoin
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional, Tuple
-import xml.etree.ElementTree as ET # Para parsear XML do Entrez
+import xml.etree.ElementTree as ET
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 # LangChain e componentes relacionados
-# MODIFICADO: Importações da LangChain e Pydantic atualizadas
 from langchain_core.prompts import ChatPromptTemplate
-# AVISO DE DEPRECIAÇÃO CORRIGIDO: Importando de pydantic.v1
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field # Usando Pydantic v2
 from langchain_core.output_parsers import PydanticOutputParser
-# IMPORT ERROR CORRIGIDO: OutputParserException movido para langchain_core.exceptions
 from langchain_core.exceptions import OutputParserException
 from langchain.output_parsers import OutputFixingParser
 
@@ -64,17 +61,17 @@ try:
     logger.info(f"Bio.Entrez configurado com email: {Entrez.email} e API Key: {'Sim' if ENTREZ_API_KEY else 'Não'}")
 except ImportError:
     logger.warning("Módulo BioPython (Bio.Entrez) não encontrado. Extração avançada de PDF via Entrez não estará disponível.")
-    Entrez = None # type: ignore
+    Entrez = None
 except Exception as e:
     logger.error(f"Erro ao configurar Bio.Entrez: {e}")
-    Entrez = None # type: ignore
+    Entrez = None
 
 # Para parsear HTML (se necessário para páginas de editor)
 try:
     from bs4 import BeautifulSoup
 except ImportError:
     logger.warning("BeautifulSoup não encontrado. Extração de PDF de páginas HTML de editores pode ser limitada.")
-    BeautifulSoup = None # type: ignore
+    BeautifulSoup = None
 
 
 class ArticleAnalysis(BaseModel):
@@ -84,14 +81,12 @@ class ArticleAnalysis(BaseModel):
     is_relevant: bool = Field(description="True se o artigo for clinicamente relevante para obesidade e doenças metabólicas.")
     summary_pt: str = Field(description="Resumo conciso do artigo em português (máximo 3-4 frases).")
     reasoning: str = Field(description="Justificativa curta para a decisão de relevância ou não relevância.")
-    # pdf_url não é mais pedido ao LLM, será extraído por outras lógicas.
 
 class ResearchAgent:
     """
     Encapsula a lógica do agente de pesquisa autônomo.
     """
     def __init__(self):
-        # A ferramenta pubmed_tool foi removida em favor do uso direto de Bio.Entrez
         try:
             self.analyzer_llm = config.get_llm("critique_agent")
         except ValueError as e:
@@ -103,7 +98,6 @@ class ResearchAgent:
             parser=self.analysis_parser, llm=self.analyzer_llm, max_retries=2
         )
 
-        # Prompt atualizado para não pedir mais a URL do PDF ao LLM
         self.analysis_prompt = ChatPromptTemplate.from_template(
             "Você é um assistente de pesquisa especializado em medicina metabólica. Analise o seguinte título e abstract de um artigo científico em relação aos tópicos de interesse: {topics}. "
             "Determine se o artigo possui alta relevância clínica e apresenta evidências fortes (ex: ensaios clínicos randomizados, meta-análises, diretrizes de grandes sociedades). "
@@ -123,23 +117,18 @@ class ResearchAgent:
             "abstract": "Abstract não disponível."
         }
         
-        # PMID
         pmid_node = article_xml.find(".//MedlineCitation/PMID")
         if pmid_node is not None:
             data["pmid"] = pmid_node.text
 
-        # Título
         title_node = article_xml.find(".//Article/ArticleTitle")
         if title_node is not None:
             data["title"] = "".join(title_node.itertext()).strip()
 
-        # Abstract
         abstract_node = article_xml.find(".//Article/Abstract/AbstractText")
         if abstract_node is not None:
-            # Concatena múltiplos parágrafos do abstract se existirem
             data["abstract"] = "\n".join(node.text for node in article_xml.findall(".//Article/Abstract/AbstractText") if node.text)
 
-        # IDs (DOI, PMCID)
         for an_id in article_xml.findall(".//Article/ELocationID") + article_xml.findall(".//PubmedData/ArticleIdList/ArticleId"):
             id_type = an_id.attrib.get("IdType")
             if id_type == "doi" and an_id.text:
@@ -152,7 +141,6 @@ class ResearchAgent:
 
         logger.debug(f"Dados extraídos do XML para PMID {data['pmid']}: Título='{data['title'][:30]}...', DOI={data['doi']}, PMCID={data['pmcid']}")
         return data
-
 
     def _fetch_pubmed_xml(self, pmid: str) -> Optional[ET.ElementTree]:
         """Busca o registro XML completo do PubMed para um dado PMID usando Entrez."""
@@ -176,37 +164,21 @@ class ResearchAgent:
             return None
 
         root = xml_data.getroot()
-        # Tenta encontrar links para PMC que geralmente têm PDFs
         for article_id in root.findall(".//ArticleId[@IdType='pmc']"):
             pmcid = article_id.text
             if pmcid:
                 pmc_url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/"
-                logger.info(f"Encontrado link PMC via XML: {pmc_url}. Verificando PDF...")
-                # Tenta encontrar um link de PDF direto no XML (menos comum, mas possível)
-                for link in root.findall(".//ArticleLink[contains(@ProviderId, 'PubMed Central')]/Url"): # Heurística
-                     if link.text and link.text.lower().endswith(".pdf"):
-                        logger.info(f"Link PDF direto encontrado no XML do Entrez (via ArticleLink PMC): {link.text}")
-                        return link.text
-
-                # Tenta encontrar links na seção 'OtherLink' que podem ser PDFs
-                for other_link in root.findall(".//OtherAbstract/AbstractText[@Label='TEXTCOMPLETELINK']/OtherLink"):
-                    if other_link.text and other_link.text.lower().endswith(".pdf"):
-                        logger.info(f"Link PDF direto encontrado no XML do Entrez (via OtherLink): {other_link.text}")
-                        return other_link.text
-
-                # Se não encontrar PDF direto, retorna o link da página do artigo PMC
-                logger.info(f"Retornando link da página do artigo PMC: {pmc_url} (PDF direto não encontrado no XML)")
-                return pmc_url # O download_and_ingest precisará de lógica para lidar com isso
-
-        # Tenta encontrar DOI para resolver externamente se não houver link PMC
+                logger.info(f"Encontrado link PMC via XML: {pmc_url}. Esta será a URL alvo.")
+                return pmc_url
+        
         doi_element = root.find(".//ArticleId[@IdType='doi']")
         if doi_element is not None and doi_element.text:
             doi = doi_element.text
             doi_url = f"https://doi.org/{doi}"
-            logger.info(f"DOI encontrado no XML: {doi}. URL: {doi_url}. Este DOI pode ser usado para buscar PDF.")
+            logger.info(f"DOI encontrado no XML: {doi}. URL: {doi_url}. Esta será a URL alvo.")
             return doi_url
 
-        logger.debug("Nenhuma URL de PDF ou link PMC promissor encontrado no XML do Entrez.")
+        logger.debug("Nenhuma URL de PDF ou link PMC/DOI promissor encontrado no XML do Entrez.")
         return None
 
     def _get_pdf_url_from_html_page(self, page_url: str) -> Optional[str]:
@@ -221,24 +193,17 @@ class ResearchAgent:
                 if 200 <= response.status < 300:
                     html_content = response.read()
                     soup = BeautifulSoup(html_content, 'html.parser')
-                    # Heurísticas comuns para encontrar links de PDF
-                    # 1. Links <a> com href terminando em .pdf
                     for a_tag in soup.find_all('a', href=True):
                         href = a_tag['href']
                         if href.lower().endswith(".pdf"):
-                            # Garante que a URL seja absoluta
                             pdf_link = urljoin(page_url, href)
                             logger.info(f"Link PDF encontrado em HTML ({page_url}): {pdf_link}")
                             return pdf_link
-                    # 2. Links <a> contendo texto como "PDF", "Full Text PDF" (case-insensitive)
                     for a_tag in soup.find_all('a', href=True, string=re.compile(r'pdf|full text', re.I)):
                         href = a_tag['href']
-                        # Alguns sites usam javascript: ou botões, o que é mais difícil.
-                        # Focar em hrefs diretos.
                         if href and not href.lower().startswith('javascript:'):
                              pdf_link = urljoin(page_url, href)
                              logger.info(f"Link PDF (por texto) encontrado em HTML ({page_url}): {pdf_link}")
-                             # Não necessariamente é um PDF direto, mas é um candidato
                              return pdf_link
                     logger.debug(f"Nenhum link PDF óbvio encontrado na página HTML: {page_url}")
                 else:
@@ -251,12 +216,10 @@ class ResearchAgent:
         """Orquestra as tentativas de extração de URL de PDF a partir dos IDs."""
         
         target_url = None
-        # Prioridade 1: Link direto para o artigo PMC se o PMCID existir
         if article_ids.get("pmcid"):
             target_url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{article_ids['pmcid']}/"
             logger.info(f"PMCID encontrado. Tentando extrair PDF a partir de: {target_url}")
 
-        # Prioridade 2: Usar DOI se não houver PMCID
         elif article_ids.get("doi"):
             target_url = f"https://doi.org/{article_ids['doi']}"
             logger.info(f"DOI encontrado. Tentando extrair PDF a partir de: {target_url}")
@@ -292,7 +255,6 @@ class ResearchAgent:
         for topic in topics:
             logger.info(f"\n[Pesquisando] Tema: '{topic}'")
             try:
-                # 1. Usar esearch para obter a lista de PMIDs
                 query = f'({topic}) AND (("randomized controlled trial"[Publication Type]) OR ("meta-analysis"[Publication Type]) OR ("guideline"[Publication Type]) OR ("systematic review"[Publication Type]))'
                 logger.debug(f"Executando esearch no PubMed: {query}")
                 
@@ -307,21 +269,17 @@ class ResearchAgent:
                 
                 logger.info(f"Encontrados {len(pmid_list)} PMIDs para '{topic}'. Buscando detalhes via efetch...")
 
-                # 2. Usar efetch para obter os dados de todos os PMIDs de uma só vez
                 efetch_handle = Entrez.efetch(db="pubmed", id=pmid_list, rettype="xml", retmode="xml")
                 articles_xml_root = ET.parse(efetch_handle).getroot()
                 efetch_handle.close()
 
-                # 3. Iterar sobre os resultados do XML
                 for i, article_xml in enumerate(articles_xml_root.findall(".//PubmedArticle")):
                     logger.info(f"  [Analisando] Artigo {i+1}/{len(pmid_list)} para '{topic}'...")
                     
-                    # Extrai dados do XML de forma estruturada
                     article_data = self._extract_data_from_xml_article(article_xml)
                     pmid = article_data.get("pmid", "N/A")
 
                     try:
-                        # LLM para análise de relevância e resumo
                         llm_response_messages = self.analysis_prompt.format_prompt(
                             topics=", ".join(topics),
                             title=article_data.get('title'),
@@ -334,8 +292,8 @@ class ResearchAgent:
 
                         try:
                             analysis: ArticleAnalysis = self.analysis_parser.parse(llm_response_content)
-                        except OutputParserException:
-                            logger.warning("   Falha no parsing Pydantic da análise do LLM. Tentando corrigir...")
+                        except OutputParserException as e_parse:
+                            logger.warning(f"   Falha no parsing Pydantic da análise do LLM. Tentando corrigir... Erro: {e_parse}")
                             analysis: ArticleAnalysis = self.output_fixing_parser.parse(llm_response_content)
 
                         logger.debug(f"   Análise do LLM (PMID {pmid}): Relevante={analysis.is_relevant}, Resumo='{analysis.summary_pt[:50]}...'")
@@ -343,7 +301,6 @@ class ResearchAgent:
                         if analysis.is_relevant:
                             logger.info(f"  -> Relevante (PMID: {pmid}): {analysis.reasoning[:100]}...")
                             
-                            # Lógica de extração de PDF baseada nos IDs extraídos do XML
                             final_pdf_url = await self._attempt_pdf_extraction(article_data)
 
                             if final_pdf_url:
@@ -363,7 +320,6 @@ class ResearchAgent:
             except Exception as e_pesquisa_topico:
                 logger.error(f"Erro geral ao pesquisar o tema '{topic}': {e_pesquisa_topico}", exc_info=True)
             finally:
-                # Adiciona um pequeno delay para ser cortês com a API, mesmo entre tópicos.
                 time.sleep(0.5)
 
         logger.info("\n--- CICLO DE PESQUISA CONCLUÍDO ---")
@@ -389,22 +345,21 @@ class ResearchAgent:
                 logger.warning(f"Não foi possível encontrar um link PDF na página HTML: {url}. Download cancelado.")
                 return
 
-        # Criação do nome do arquivo (similar à lógica anterior)
         parsed_url_for_filename = urlparse(actual_pdf_url_to_download)
         url_path_basename = os.path.basename(parsed_url_for_filename.path) if parsed_url_for_filename.path else None
         base_name_to_use = url_path_basename if url_path_basename and '.' in url_path_basename else preferred_filename_base
         clean_base = re.sub(r'[^\w\.\-]', '_', base_name_to_use)
         base, ext = os.path.splitext(clean_base)
         base = base[:50]
-        if not ext or ext.lower() not in ['.pdf', '.txt']: # Garante extensão .pdf se não for txt
+        if not ext or ext.lower() not in ['.pdf', '.txt']:
             ext = ".pdf"
         filename = f"{base}_{hashlib.sha1(actual_pdf_url_to_download.encode()).hexdigest()[:8]}{ext}"
         file_path = os.path.join(download_dir, filename)
 
-        ingestion_result_str = "Falha no download" # Default
+        ingestion_result_str = "Falha no download"
         try:
             logger.info(f"  [Baixando] Artigo de {actual_pdf_url_to_download} para {file_path}")
-            req = Request(actual_pdf_url_to_download, headers={'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'}) # User-Agent genérico
+            req = Request(actual_pdf_url_to_download, headers={'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'})
             with urlopen(req, timeout=30) as response, open(file_path, 'wb') as out_file:
                 content_type = response.info().get('Content-Type', '').lower()
                 if not ('application/pdf' in content_type or file_path.lower().endswith(".pdf")):
@@ -412,8 +367,13 @@ class ResearchAgent:
                 out_file.write(response.read())
             logger.info(f"  Download completo: {file_path}")
 
-            ingestion_result_str = kb_manager.ingest_new_document(file_path=file_path)
-            logger.info(f"  [Ingestão] Resultado para '{filename}': {ingestion_result_str}")
+            if kb_manager:
+                ingestion_result_str = kb_manager.ingest_new_document(file_path=file_path)
+                logger.info(f"  [Ingestão] Resultado para '{filename}': {ingestion_result_str}")
+            else:
+                ingestion_result_str = "Falha: kb_manager não está disponível."
+                logger.error(ingestion_result_str)
+
 
         except HTTPError as e_http:
             logger.error(f"  -> ERRO HTTP {e_http.code} ao baixar de {actual_pdf_url_to_download}: {e_http.reason}")
@@ -432,24 +392,24 @@ class ResearchAgent:
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG, # DEBUG para ver mais detalhes do research_worker
+        level=logging.INFO,
         format='%(asctime)s - %(name)s [%(levelname)s] - %(module)s.%(funcName)s: %(message)s'
     )
     logger.info("Iniciando Research Worker...")
     
-    # ... (resto do __main__ como antes) ...
+    if kb_manager is None:
+        logger.critical("KnowledgeBaseManager não pôde ser inicializado devido a erros anteriores. Encerrando o Research Worker.")
+        exit(1)
+
     try:
         agent = ResearchAgent()
     except SystemExit:
         logger.critical("Não foi possível inicializar o ResearchAgent. Encerrando o worker.")
-        exit(1) # Sai se o agente não puder ser inicializado
+        exit(1)
 
     research_agent_config = config._config.get('research_agent', {})
     run_interval_hours = research_agent_config.get('run_interval_hours', 24)
 
-    logger.info(f"Agendando a execução do ciclo de pesquisa a cada {run_interval_hours} horas.")
-    
-    # Wrapper para schedule
     def run_async_job():
         import asyncio
         try:
@@ -462,12 +422,11 @@ if __name__ == "__main__":
     logger.info("Executando o primeiro ciclo de pesquisa imediatamente (async)...")
     try:
         import asyncio
-        asyncio.run(agent.run_research_cycle()) # Executa o primeiro ciclo
-
+        asyncio.run(agent.run_research_cycle())
     except Exception as e_first_run:
         logger.error(f"Erro durante a primeira execução do ciclo de pesquisa: {e_first_run}", exc_info=True)
 
-    logger.info(f"Research Worker iniciado e aguardando execuções agendadas...")
+    logger.info(f"Research Worker iniciado. Próxima execução agendada em {run_interval_hours} horas.")
     while True:
         schedule.run_pending()
         time.sleep(60)
