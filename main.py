@@ -22,7 +22,7 @@ import logging # Adicionado logging
 from fastapi import FastAPI, UploadFile, File, HTTPException # BackgroundTasks removido
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from langchain.cache import InMemoryCache
+from langchain_community.cache import InMemoryCache
 
 load_dotenv()
 langchain.llm_cache = InMemoryCache()
