@@ -18,7 +18,6 @@ import os
 import logging
 from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAI
-# MODIFICADO: A importação de 'List' foi adicionada.
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,6 @@ class ConfigLoader:
         return cls._instance
 
     def __init__(self, config_path: str = 'config.yaml'):
-        # Evita reinicialização
         if hasattr(self, '_initialized') and self._initialized:
             return
         
@@ -52,13 +50,11 @@ class ConfigLoader:
             logger.critical(f"Erro ao parsear o arquivo YAML '{config_path}': {e}")
             raise SystemExit(f"Erro no formato do arquivo de configuração: {e}")
 
-        # Injeta a chave de API nos LLMs do provedor Google
         if self._config.get('llms'):
             for agent_name, agent_config in self._config['llms'].items():
                 if agent_config.get('provider') == 'google' and not agent_config.get('api_key'):
                     agent_config['api_key'] = self.google_api_key
         
-        # Injeta a chave de API também nos modelos de embedding
         if self._config.get('models'):
             for model_type, model_config in self._config['models'].items():
                 if model_config.get('provider') == 'google' and not model_config.get('api_key'):
@@ -75,7 +71,8 @@ class ConfigLoader:
             return None
         
         provider = agent_config.get('provider')
-        model_name = agent_config.get('model')
+        # MODIFICADO: Lendo a chave 'model_name' em vez de 'model' para corresponder ao YAML.
+        model_name = agent_config.get('model_name')
         temperature = agent_config.get('temperature', 0.7)
         api_key = agent_config.get('api_key')
 
@@ -83,6 +80,7 @@ class ConfigLoader:
             logger.info(f"Configurando LLM para '{agent_name}': provider=google, model={model_name}, temp={temperature}")
             if not api_key:
                 logger.warning(f"Chave de API da Google não encontrada para o agente '{agent_name}'. A autenticação pode falhar.")
+            # A classe GoogleGenerativeAI espera o parâmetro 'model', não 'model_name'.
             return GoogleGenerativeAI(model=model_name, temperature=temperature, google_api_key=api_key)
         else:
             logger.error(f"Provedor de LLM '{provider}' não suportado.")
