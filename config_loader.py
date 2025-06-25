@@ -21,7 +21,7 @@ Principais funcionalidades:
 import yaml
 import asyncio
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 class ConfigLoader:
     """
