@@ -25,7 +25,8 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredFileLoader
 from langchain_community.vectorstores import FAISS
-from langchain_community.graphs import Neo4jGraph
+# MODIFICADO: Importando Neo4jGraph do novo pacote para resolver o DeprecationWarning.
+from langchain_neo4j import Neo4jGraph
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import numpy as np
@@ -72,10 +73,10 @@ class KnowledgeBaseManager:
 
         # Inicializa o modelo de embedding
         try:
-            # REVERTIDO: Esta forma agora funcionará, pois o config_loader injeta a chave no model_config.
+            # MODIFICADO: Passando a chave de API diretamente do objeto config, que a carrega do .env
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model=self.model_config.get("name", "models/embedding-001"),
-                google_api_key=self.model_config.get("api_key")
+                google_api_key=config.google_api_key
             )
             logger.info(f"Modelo de embedding '{self.model_config.get('name')}' carregado.")
         except Exception as e:
