@@ -21,7 +21,7 @@ import os
 import shutil
 import hashlib
 import logging # Adicionado logging
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
 # Tentar importar exceções específicas do Neo4j para captura mais granular
