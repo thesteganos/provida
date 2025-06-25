@@ -15,19 +15,28 @@ Principais componentes:
 - Uso de parsers e output fixers para garantir a robustez da saída dos LLMs.
 """
 import logging
+from typing import Dict, Any, Optional # Adicionado para type hints
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic.v1 import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain.output_parsers import OutputFixingParser # Importação adicionada
+from pydantic.v1 import BaseModel, Field # Mantendo v1 por compatibilidade com OutputFixingParser
+from langchain_core.output_parsers import PydanticOutputParser, OutputParserException
+from langchain.output_parsers import OutputFixingParser
 from prompts import ANAMNESIS_PROMPT, DIAGNOSIS_PROMPT, PLANNING_PROMPT, VERIFICATION_PROMPT
 from tools import patient_kg_query_tool, rag_evidence_search_tool
 from kb_manager import kb_manager
 from config_loader import config
+# from graph import AgentState # Potencial import para tipagem de 'state', cuidado com circularidade
+
+logger = logging.getLogger(__name__)
+
+# Definição de um tipo para o estado, para melhorar a clareza.
+# Se AgentState de graph.py puder ser importado sem causar problemas de circularidade,
+# seria preferível usá-lo. Por ora, uma definição local ou Dict[str, Any] é usada.
+StateType = Dict[str, Any]
+
 
 class StructuredPatientData(BaseModel):
     """
     Modelo de dados para estruturar as informações do paciente coletadas na anamnese.
-
     Utiliza Pydantic para validação e serialização de dados.
     As descrições dos campos são usadas para auxiliar o LLM na formatação da saída.
     """
@@ -40,44 +49,48 @@ class StructuredPatientData(BaseModel):
 class VerificationResult(BaseModel):
     """
     Modelo de dados para estruturar o resultado da verificação do plano terapêutico.
-
     Contém o score de confiança, notas da verificação e um booleano indicando
     se o plano é seguro para prosseguir.
     """
-    confidence_score: float = Field(description="Score de confiança de 0.0 a 1.0 para o plano.")
+    confidence_score: float = Field(description="Score de confiança de 0.0 a 1.0 para o plano.", ge=0.0, le=1.0)
     notes: str = Field(description="Notas e justificativa da verificação.")
     is_safe_to_proceed: bool = Field(description="True se o plano for seguro, False caso contrário.")
 
-llms = {
-    "anamnesis": config.get_llm("anamnesis_agent"),
-    "diagnosis": config.get_llm("diagnosis_agent").bind_tools([patient_kg_query_tool]),
-    "planning": config.get_llm("planning_agent").bind_tools([rag_evidence_search_tool]),
-    "verification": config.get_llm("verification_agent") # .bind_tools removido pois o OutputFixingParser não lida bem com tools na LLM diretamente
-}
+# Carregamento centralizado de LLMs para os agentes
+try:
+    llms = {
+        "anamnesis": config.get_llm("anamnesis_agent"),
+        "diagnosis": config.get_llm("diagnosis_agent").bind_tools([patient_kg_query_tool]),
+        "planning": config.get_llm("planning_agent").bind_tools([rag_evidence_search_tool]),
+        "verification": config.get_llm("verification_agent")
+        # .bind_tools removido para 'verification' pois OutputFixingParser pode não lidar bem
+    }
+except ValueError as e:
+    logger.critical(f"Erro crítico ao carregar LLMs configurados: {e}. A aplicação pode não funcionar corretamente.", exc_info=True)
+    # Fallback para LLMs dummy ou levantar exceção para parar a aplicação pode ser considerado aqui
+    llms = {} # Ou raise SystemExit("Falha ao carregar LLMs.") from e
 
-async def run_anamnesis_agent(state: dict) -> dict:
+async def run_anamnesis_agent(state: StateType) -> StateType:
     """
     Executa o agente de anamnese para coletar e estruturar os dados iniciais do paciente.
-
-    Recebe o estado atual do grafo, que contém os dados brutos do paciente.
-    Utiliza um LLM para processar esses dados e extrair informações estruturadas
-    conforme o modelo `StructuredPatientData`.
-    Em caso de falha no parsing inicial, tenta corrigir a saída do LLM.
-    Os dados estruturados são persistidos no Knowledge Graph através do `kb_manager`.
-
-    Args:
-        state (dict): O estado atual do grafo, esperado conter `state['patient_data']`
-                      com as informações brutas do paciente e `state['patient_id']`.
-
-    Returns:
-        dict: Um dicionário contendo `{"patient_data_structured": <dados_estruturados>}`
-              em caso de sucesso, ou `{"patient_data_structured": None, "error_anamnesis": <mensagem_erro>}`
-              em caso de falha no parsing.
     """
-    print("---EXECUTANDO AGENTE DE ANAMNESE---")
+    logger.debug("---EXECUTANDO AGENTE DE ANAMNESE---")
+
+    patient_data_raw = state.get('patient_data')
+    patient_id = state.get('patient_id')
+
+    if not patient_data_raw or not patient_id:
+        logger.error("Dados do paciente brutos ou ID do paciente ausentes no estado para o agente de anamnese.")
+        return {"patient_data_structured": None, "error_anamnesis": "Dados de entrada ausentes."}
+
+    if not llms.get("anamnesis"): # Checa se o LLM foi carregado
+        logger.error("LLM para agente de anamnese não está disponível.")
+        return {"patient_data_structured": None, "error_anamnesis": "LLM não configurado."}
+
     anamnesis_llm = llms["anamnesis"]
     parser = PydanticOutputParser(pydantic_object=StructuredPatientData)
-    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=anamnesis_llm)
+    # OutputFixingParser pode ser custoso (chama o LLM novamente). Usar com moderação.
+    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=anamnesis_llm, max_retries=2)
 
     prompt_template = ChatPromptTemplate.from_template(
         ANAMNESIS_PROMPT + "\n\n{format_instructions}",
@@ -86,122 +99,147 @@ async def run_anamnesis_agent(state: dict) -> dict:
     chain = prompt_template | anamnesis_llm
 
     try:
-        response = await config.throttled_google_acall(chain, {"patient_data": state['patient_data']})
+        response = await config.throttled_google_acall(chain, {"patient_data": patient_data_raw})
         structured_data = parser.parse(response.content)
-    except Exception as e:
-        logging.warning(f"Falha no parsing inicial do agente de anamnese: {e}. Tentando corrigir...")
+        logger.info(f"Anamnese estruturada para paciente {patient_id} via parsing direto.")
+    except OutputParserException as e_parse: # Erro específico do PydanticOutputParser
+        logger.warning(f"Falha no parsing Pydantic inicial do agente de anamnese para {patient_id}: {e_parse}. Tentando corrigir...")
         try:
-            # A resposta do LLM está em response.content
             structured_data = output_fixing_parser.parse(response.content)
-            logging.info("Parsing corrigido com sucesso pelo OutputFixingParser.")
-        except Exception as e_fix:
-            logging.error(f"Falha ao corrigir o parsing do agente de anamnese: {e_fix}")
-            # Retorna um estado de erro ou um dicionário indicando a falha
-            return {"patient_data_structured": None, "error_anamnesis": str(e_fix)}
+            logger.info(f"Parsing da anamnese para {patient_id} corrigido com sucesso pelo OutputFixingParser.")
+        except Exception as e_fix: # OutputFixingParser também falhou
+            logger.error(f"Falha ao corrigir o parsing do agente de anamnese para {patient_id}: {e_fix}", exc_info=True)
+            return {"patient_data_structured": None, "error_anamnesis": f"Falha no parsing e na correção: {e_fix}"}
+    except Exception as e_llm_call: # Outros erros (chamada LLM, etc.)
+        logger.error(f"Erro na chamada LLM ou inesperado no agente de anamnese para {patient_id}: {e_llm_call}", exc_info=True)
+        return {"patient_data_structured": None, "error_anamnesis": f"Erro na chamada LLM: {e_llm_call}"}
 
     if structured_data:
-        kb_manager.add_patient_data(state['patient_id'], structured_data.dict())
-        return {"patient_data_structured": structured_data.dict()}
-    else: # Caso OutputFixingParser também não consiga (embora ele tenda a levantar exceção)
-        return {"patient_data_structured": None, "error_anamnesis": "Falha no parsing e na correção."}
+        try:
+            kb_manager.add_patient_data(patient_id, structured_data.dict())
+            logger.info(f"Dados estruturados do paciente {patient_id} persistidos no KB.")
+            return {"patient_data_structured": structured_data.dict()}
+        except Exception as e_kb:
+            logger.error(f"Falha ao persistir dados da anamnese para {patient_id} no KB: {e_kb}", exc_info=True)
+            # Decide se o erro de KB deve impedir o fluxo. Por ora, retorna sucesso parcial.
+            return {"patient_data_structured": structured_data.dict(), "warning_anamnesis": f"Dados estruturados mas falha ao salvar no KB: {e_kb}"}
+    else:
+        # Este caso pode não ser alcançado se OutputFixingParser sempre levantar exceção em falha.
+        logger.error(f"Agente de anamnese para {patient_id} não produziu dados estruturados mesmo após tentativa de correção.")
+        return {"patient_data_structured": None, "error_anamnesis": "Falha no parsing e na correção (resultado final nulo)."}
 
-async def run_diagnosis_agent(state: dict) -> dict:
+async def run_diagnosis_agent(state: StateType) -> StateType:
     """
-    Executa o agente de diagnóstico para analisar os dados do paciente e gerar um diagnóstico.
-
-    Utiliza o `patient_kg_query_tool` para buscar os dados estruturados do paciente
-    (previamente processados pelo agente de anamnese) a partir do Knowledge Graph.
-    Com base nesses dados, um LLM gera um resumo do diagnóstico e identifica
-    fatores de risco.
-
-    Args:
-        state (dict): O estado atual do grafo, esperado conter `state['patient_id']`.
-
-    Returns:
-        dict: Um dicionário contendo `{"diagnosis": <texto_do_diagnostico>}`.
+    Executa o agente de diagnóstico.
     """
-    print("---EXECUTANDO AGENTE DE DIAGNÓSTICO---")
+    logger.debug("---EXECUTANDO AGENTE DE DIAGNÓSTICO---")
+    patient_id = state.get('patient_id')
+    if not patient_id:
+        logger.error("ID do paciente ausente no estado para o agente de diagnóstico.")
+        return {"diagnosis": None, "error_diagnosis": "ID do paciente ausente."}
+
+    if not llms.get("diagnosis"):
+        logger.error("LLM para agente de diagnóstico não está disponível.")
+        return {"diagnosis": None, "error_diagnosis": "LLM não configurado."}
+
     prompt = ChatPromptTemplate.from_template(DIAGNOSIS_PROMPT)
     chain = prompt | llms["diagnosis"]
-    result = await config.throttled_google_acall(chain, {"patient_id": state['patient_id']})
-    return {"diagnosis": result.content}
 
-async def run_planning_agent(state: dict) -> dict:
+    try:
+        # A ferramenta patient_kg_query_tool é invocada pelo LLM se necessário.
+        result = await config.throttled_google_acall(chain, {"patient_id": patient_id})
+        logger.info(f"Diagnóstico gerado para paciente {patient_id}.")
+        return {"diagnosis": result.content}
+    except Exception as e:
+        logger.error(f"Erro ao executar agente de diagnóstico para {patient_id}: {e}", exc_info=True)
+        return {"diagnosis": None, "error_diagnosis": f"Erro na execução do agente: {e}"}
+
+
+async def run_planning_agent(state: StateType) -> StateType:
     """
-    Executa o agente de planejamento terapêutico para criar um plano de tratamento.
-
-    Com base no diagnóstico e nos dados estruturados do paciente, este agente
-    gera um rascunho de plano terapêutico multimodal.
-    Utiliza a ferramenta `rag_evidence_search_tool` para buscar evidências científicas
-    que suportem as recomendações do plano.
-    Se houver instruções de replanejamento (vindas do agente de verificação),
-    elas são consideradas para refinar o plano.
-
-    Args:
-        state (dict): O estado atual do grafo, esperado conter `state['diagnosis']`,
-                      `state['patient_data_structured']`, e opcionalmente
-                      `state['replan_instructions']`.
-
-    Returns:
-        dict: Um dicionário contendo `{"plan": <texto_do_plano_terapeutico>}`.
+    Executa o agente de planejamento terapêutico.
     """
-    print("---EXECUTANDO AGENTE DE PLANEJAMENTO TERAPÊUTICO---")
+    logger.debug("---EXECUTANDO AGENTE DE PLANEJAMENTO TERAPÊUTICO---")
+    patient_id = state.get('patient_id') # Usado para logging
+    diagnosis = state.get('diagnosis')
+    patient_data_structured = state.get('patient_data_structured')
+    replan_instructions = state.get("replan_instructions", "Nenhuma instrução de replanejamento anterior.")
+
+    if not diagnosis or not patient_data_structured:
+        logger.error(f"Diagnóstico ou dados estruturados do paciente ausentes para planejamento (ID: {patient_id}).")
+        return {"plan": None, "error_planning": "Dados de entrada insuficientes."}
+
+    if not llms.get("planning"):
+        logger.error(f"LLM para agente de planejamento não está disponível (ID: {patient_id}).")
+        return {"plan": None, "error_planning": "LLM não configurado."}
+
     prompt = ChatPromptTemplate.from_template(PLANNING_PROMPT)
     chain = prompt | llms["planning"]
-    result = await config.throttled_google_acall(chain, {
-        "diagnosis": state['diagnosis'], "patient_data": state['patient_data_structured'], "replan_instructions": state.get("replan_instructions", "Nenhuma.")
-    })
-    return {"plan": result.content}
 
-async def run_verification_agent(state: dict) -> dict:
+    try:
+        # A ferramenta rag_evidence_search_tool é invocada pelo LLM.
+        result = await config.throttled_google_acall(chain, {
+            "diagnosis": diagnosis,
+            "patient_data": patient_data_structured,
+            "replan_instructions": replan_instructions
+        })
+        logger.info(f"Plano terapêutico gerado para paciente {patient_id}.")
+        return {"plan": result.content}
+    except Exception as e:
+        logger.error(f"Erro ao executar agente de planejamento para {patient_id}: {e}", exc_info=True)
+        return {"plan": None, "error_planning": f"Erro na execução do agente: {e}"}
+
+async def run_verification_agent(state: StateType) -> StateType:
     """
     Executa o agente de verificação para analisar a qualidade e segurança do plano terapêutico.
-
-    Recebe o plano gerado pelo agente de planejamento.
-    Utiliza um LLM para revisar o plano, verificar se as evidências citadas
-    suportam as recomendações, e atribuir um score de confiança.
-    A saída é estruturada conforme o modelo `VerificationResult`, incluindo
-    um campo `is_safe_to_proceed`.
-    Em caso de falha no parsing, tenta corrigir a saída do LLM.
-
-    Args:
-        state (dict): O estado atual do grafo, esperado conter `state['plan']`.
-
-    Returns:
-        dict: Um dicionário contendo `{"verification": <resultado_da_verificacao>}`
-              em caso de sucesso, ou um dicionário de erro com `is_safe_to_proceed`
-              definido como `False` em caso de falha no parsing.
     """
-    print("---EXECUTANDO AGENTE DE VERIFICAÇÃO---")
-    verification_llm = llms["verification"] # LLM para o agente
+    logger.debug("---EXECUTANDO AGENTE DE VERIFICAÇÃO---")
+    plan_to_verify = state.get('plan')
+    patient_id = state.get('patient_id') # Usado para logging
+
+    if not plan_to_verify:
+        logger.error(f"Plano terapêutico ausente no estado para verificação (ID: {patient_id}).")
+        # Retorna um resultado de verificação indicando falha
+        return {"verification": VerificationResult(confidence_score=0.0, notes="Plano ausente para verificação.", is_safe_to_proceed=False, error_verification="Plano ausente.").dict()}
+
+    if not llms.get("verification"):
+        logger.error(f"LLM para agente de verificação não está disponível (ID: {patient_id}).")
+        return {"verification": VerificationResult(confidence_score=0.0, notes="LLM de verificação não configurado.", is_safe_to_proceed=False, error_verification="LLM não configurado.").dict()}
+
+    verification_llm = llms["verification"]
     parser = PydanticOutputParser(pydantic_object=VerificationResult)
-    # O OutputFixingParser precisa de um LLM para tentar corrigir a saída
-    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=verification_llm)
+    output_fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=verification_llm, max_retries=2)
 
     prompt_template = ChatPromptTemplate.from_template(
         VERIFICATION_PROMPT + "\n\n{format_instructions}",
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
-    # A cadeia agora é prompt -> llm. O parser é aplicado depois.
     chain = prompt_template | verification_llm
 
-    try:
-        response = await config.throttled_google_acall(chain, {"plan": state['plan']})
-        # Tentativa de parsing inicial
-        verification_result = parser.parse(response.content)
-    except Exception as e:
-        logging.warning(f"Falha no parsing inicial do agente de verificação: {e}. Tentando corrigir...")
-        try:
-            # Tenta corrigir usando OutputFixingParser
-            # A resposta do LLM (string) está em response.content
-            verification_result = output_fixing_parser.parse(response.content)
-            logging.info("Parsing corrigido com sucesso pelo OutputFixingParser para verificação.")
-        except Exception as e_fix:
-            logging.error(f"Falha ao corrigir o parsing do agente de verificação: {e_fix}")
-            # Retorna um estado de erro ou um dicionário indicando a falha
-            return {"verification": {"is_safe_to_proceed": False, "notes": f"Erro de parsing: {e_fix}", "confidence_score": 0.0, "error_verification": str(e_fix)}}
+    default_error_result = {
+        "confidence_score": 0.0,
+        "notes": "Falha crítica na verificação.",
+        "is_safe_to_proceed": False
+    }
 
-    if verification_result:
-        return {"verification": verification_result.dict()}
-    else: # Caso OutputFixingParser também não consiga
-        return {"verification": {"is_safe_to_proceed": False, "notes": "Falha no parsing e na correção da verificação.", "confidence_score": 0.0, "error_verification": "Falha no parsing e na correção."}}
+    try:
+        response = await config.throttled_google_acall(chain, {"plan": plan_to_verify})
+        verification_result_obj = parser.parse(response.content)
+        logger.info(f"Verificação do plano para {patient_id} concluída via parsing direto.")
+    except OutputParserException as e_parse:
+        logger.warning(f"Falha no parsing Pydantic inicial da verificação para {patient_id}: {e_parse}. Tentando corrigir...")
+        try:
+            verification_result_obj = output_fixing_parser.parse(response.content)
+            logger.info(f"Parsing da verificação para {patient_id} corrigido com sucesso pelo OutputFixingParser.")
+        except Exception as e_fix:
+            logger.error(f"Falha ao corrigir o parsing da verificação para {patient_id}: {e_fix}", exc_info=True)
+            return {"verification": {**default_error_result, "notes": f"Erro de parsing na verificação: {e_fix}", "error_verification": str(e_fix)}}
+    except Exception as e_llm_call:
+        logger.error(f"Erro na chamada LLM ou inesperado no agente de verificação para {patient_id}: {e_llm_call}", exc_info=True)
+        return {"verification": {**default_error_result, "notes": f"Erro na chamada LLM de verificação: {e_llm_call}", "error_verification": str(e_llm_call)}}
+
+    if verification_result_obj:
+        return {"verification": verification_result_obj.dict()}
+    else:
+        logger.error(f"Agente de verificação para {patient_id} não produziu resultado estruturado mesmo após tentativa de correção.")
+        return {"verification": {**default_error_result, "notes": "Falha no parsing e na correção da verificação (resultado final nulo).", "error_verification": "Resultado nulo após correção."}}

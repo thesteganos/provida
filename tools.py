@@ -11,39 +11,57 @@ Ferramentas definidas:
 - `patient_kg_query_tool`: Busca dados clínicos de um paciente no Neo4j.
 - `rag_evidence_search_tool`: Busca evidências em documentos médicos via RAG.
 """
+import logging
+from typing import List, Dict, Any, Union # Adicionado Union para o tipo de retorno
 from langchain_core.tools import tool
 from kb_manager import kb_manager
 
+logger = logging.getLogger(__name__)
+
 @tool
-def patient_kg_query_tool(patient_id: str) -> list:
+def patient_kg_query_tool(patient_id: str) -> Union[List[Dict[str, Any]], str]:
     """
     Busca os dados clínicos estruturados de um paciente específico no Grafo de Conhecimento (Neo4j).
 
-    Esta ferramenta é projetada para ser usada por agentes que precisam acessar
-    informações detalhadas de um paciente. A query Cypher é fixa para buscar todas as
-    propriedades do nó :Patient correspondente ao `patient_id` fornecido.
+    Utiliza uma query Cypher parametrizada para segurança.
+    Retorna uma lista de dicionários com os dados do paciente ou uma string de erro.
 
     Args:
-        patient_id (str): O identificador único do paciente cujos dados devem ser buscados.
+        patient_id (str): O identificador único do paciente.
 
     Returns:
-        list: Uma lista de dicionários, onde cada dicionário representa um nó encontrado
-              (espera-se geralmente um único nó de paciente). As chaves do dicionário
-              são as propriedades do nó no Neo4j. Retorna uma lista vazia se nenhum
-              paciente for encontrado ou se a conexão com o Neo4j falhar.
-              Exemplo de retorno: `[{'p': {'id': 'xyz', 'name': 'Fulano', 'age': 30, ...}}]`
-
-    Raises:
-        Pode levantar exceções relacionadas à conexão com o Neo4j se o `kb_manager.graph`
-        não estiver disponível ou se a query falhar.
+        Union[List[Dict[str, Any]], str]: Lista de dicionários com dados do paciente
+                                           (geralmente um único paciente),
+                                           uma lista vazia se não encontrado,
+                                           ou uma string de erro em caso de falha.
+                                           Exemplo de sucesso: `[{'p': {'id': 'xyz', 'name': 'Fulano', ...}}]`
+                                           Exemplo de erro: `"Erro ao consultar KG: <detalhes>"`
     """
-    # A query Cypher é fixa para buscar todos os dados do nó do paciente.
-    cypher_query = f"MATCH (p:Patient {{id: '{patient_id}'}}) RETURN p"
-    print(f"Executando query no KG para patient_id='{patient_id}': {cypher_query}")
+    if not patient_id or not isinstance(patient_id, str):
+        logger.warning("patient_kg_query_tool: patient_id inválido ou ausente.")
+        return "Erro: ID do paciente inválido ou não fornecido para a busca no KG."
+
+    # Query Cypher parametrizada para segurança
+    cypher_query = "MATCH (p:Patient {id: $patient_id_param}) RETURN p"
+    params = {"patient_id_param": patient_id}
+
+    logger.debug(f"Executando query parametrizada no KG para patient_id='{patient_id}'")
+
     if kb_manager.graph:
-        return kb_manager.graph.query(cypher_query)
-    logging.error(f"patient_kg_query_tool: Neo4j graph não está disponível. Patient ID: {patient_id}")
-    return []
+        try:
+            # A resposta de graph.query() é geralmente uma lista de registros (dicts)
+            result: List[Dict[str, Any]] = kb_manager.graph.query(cypher_query, params=params)
+            if not result:
+                logger.info(f"Nenhum paciente encontrado no KG com ID: {patient_id}")
+                return [] # Retorna lista vazia se não encontrado, o LLM pode interpretar isso.
+            return result
+        except Exception as e:
+            logger.error(f"Erro ao executar query no KG para patient_id='{patient_id}': {e}", exc_info=True)
+            # Retorna uma string de erro que o LLM pode processar
+            return f"Erro ao consultar a base de dados do paciente: {e}"
+    else:
+        logger.error(f"patient_kg_query_tool: Neo4j graph não está disponível. Patient ID: {patient_id}")
+        return "Erro: A conexão com a base de dados de pacientes (Neo4j) não está disponível."
 
 @tool
 def rag_evidence_search_tool(topic: str) -> str:
@@ -60,9 +78,16 @@ def rag_evidence_search_tool(topic: str) -> str:
     Returns:
         str: Uma string contendo os trechos de documentos encontrados, formatados
              com a fonte e o conteúdo. Retorna uma mensagem indicando que nenhuma
-             informação foi encontrada se a busca não retornar resultados.
+             informação foi encontrada se a busca não retornar resultados, ou uma
+             mensagem de erro se a busca falhar.
     """
-    return kb_manager.rag_query(topic)
+    if not topic or not isinstance(topic, str):
+        logger.warning("rag_evidence_search_tool: 'topic' inválido ou ausente.")
+        return "Erro: Tópico de busca inválido ou não fornecido para a pesquisa de evidências."
 
-# Adicionado import de logging que faltava para o error handling em patient_kg_query_tool
-import logging
+    logger.debug(f"Executando busca RAG para o tópico: '{topic[:100]}...'")
+    try:
+        return kb_manager.rag_query(topic)
+    except Exception as e:
+        logger.error(f"Erro inesperado ao executar rag_evidence_search_tool para o tópico '{topic}': {e}", exc_info=True)
+        return f"Erro ao realizar a busca por evidências: {e}"
