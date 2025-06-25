@@ -17,32 +17,32 @@ rag_config:
 agent_models:
   default:
     provider: "google"
-    model_name: "gemini-1.5-flash-latest"
+    model_name: "gemini-2.5-flash"
     temperature: 0.2
   
   anamnesis_agent:
     provider: "google"
-    model_name: "gemini-1.5-flash-latest"
+    model_name: "gemini-2.5-flash"
     temperature: 0.1
   
   diagnosis_agent:
     provider: "google"
-    model_name: "gemini-1.5-pro-latest"
+    model_name: "gemini-2.5-pro"
     temperature: 0.3
 
   planning_agent:
     provider: "google"
-    model_name: "gemini-1.5-pro-latest"
+    model_name: "gemini-2.5-pro"
     temperature: 0.4
     
   verification_agent:
     provider: "google"
-    model_name: "gemini-1.5-flash-latest"
+    model_name: "gemini-2.5-flash"
     temperature: 0.1
 
   critique_agent: # Usado para introspecção e análise de artigos
     provider: "google"
-    model_name: "gemini-1.5-flash-latest"
+    model_name: "gemini-2.5-flash"
     temperature: 0.3
 
 # Configuração do Agente de Pesquisa Autônomo
