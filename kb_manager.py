@@ -31,7 +31,8 @@ import numpy as np
 
 # Módulos locais
 from config_loader import config
-from graph import Neo4jGraph
+# MODIFICADO: A importação de Neo4jGraph foi removida do topo para quebrar a dependência circular.
+# from graph import Neo4jGraph
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,9 @@ class KnowledgeBaseManager:
             return
         
         logger.info("Inicializando KnowledgeBaseManager...")
+
+        # MODIFICADO: A importação é feita aqui, dentro do método __init__.
+        from graph import Neo4jGraph
 
         # Carrega configurações do arquivo YAML
         self.rag_config = config.get_rag_config()
@@ -201,33 +205,15 @@ class KnowledgeBaseManager:
             threshold = self.rag_config.get('semantic_similarity_threshold', 0.95)
 
         try:
-            # Busca o documento mais similar ao texto fornecido
-            # `search_with_score` retorna uma lista de (documento, score)
-            # Para FAISS com L2-distance (padrão), scores menores são melhores.
-            # Para FAISS com IP (similaridade de cosseno), scores maiores são melhores.
-            # A interface `similarity_search_with_score` normaliza isso: score maior = mais similar.
             results_with_scores: List[Tuple[Any, float]] = self.vector_store.similarity_search_with_score(
                 query_text, k=1
             )
             
             if not results_with_scores:
                 return False
-
-            # O score retornado por similarity_search_with_score é a distância.
-            # Para similaridade de cosseno, o score de distância é convertido para ser mais intuitivo,
-            # mas precisamos ter certeza do que ele representa.
-            # A documentação de LangChain indica que para `similarity_search_with_score`,
-            # o score de similaridade de cosseno é retornado (maior é melhor).
-            # No entanto, a implementação subjacente do FAISS pode usar L2.
-            # Vamos assumir que a abstração da LangChain funciona e um score maior significa mais similar.
-            # Se for distância, teríamos que fazer `similarity < threshold`.
-            # A forma mais segura é usar `similarity_search_with_relevance_scores`, que retorna um score entre 0 e 1.
             
-            # Usando uma abordagem mais simples e direta com `similarity_search_with_score`
-            # e assumindo que scores maiores = mais similar (como na similaridade de cosseno)
             doc, similarity = results_with_scores[0]
             
-            # CORREÇÃO DO SYNTAXERROR: A operação .replace() foi movida para fora da f-string.
             cleaned_query_text = query_text[:100].replace('\n', ' ')
             logger.debug(f"Verificação de duplicidade semântica: Similaridade com o mais próximo = {similarity:.4f} (limiar: {threshold}) para o documento começando com '{cleaned_query_text}...'")
 
