@@ -19,7 +19,6 @@ Principais componentes:
 import logging
 from typing import TypedDict, List, Annotated
 from langgraph.graph import StateGraph, END
-# MODIFICADO: Substituído SqliteSaver por MemorySaver para um checkpointer em memória.
 from langgraph.checkpoint.memory import MemorySaver
 
 # A importação de 'agents' foi removida do topo para quebrar a dependência circular.
@@ -42,7 +41,6 @@ class TherapeuticWorkflowGraph:
     Constrói e gerencia o grafo de fluxo de trabalho terapêutico com LangGraph.
     """
     def __init__(self):
-        # MODIFICADO: Usando MemorySaver() para o checkpointer em memória.
         self.memory = MemorySaver()
         self.graph_app = self._build_graph()
 
@@ -61,22 +59,27 @@ class TherapeuticWorkflowGraph:
         workflow = StateGraph(AgentState)
 
         # Adiciona os nós ao grafo, cada um correspondendo a um agente
-        workflow.add_node("anamnesis", run_anamnesis_agent)
-        workflow.add_node("diagnosis", run_diagnosis_agent)
-        workflow.add_node("planning", run_planning_agent)
-        workflow.add_node("verification", run_verification_agent)
+        # MODIFICADO: Renomeando os nós para evitar conflito com as chaves do estado.
+        workflow.add_node("anamnesis_step", run_anamnesis_agent)
+        workflow.add_node("diagnosis_step", run_diagnosis_agent)
+        workflow.add_node("planning_step", run_planning_agent)
+        workflow.add_node("verification_step", run_verification_agent)
 
         # Define as arestas (fluxo de execução)
-        workflow.set_entry_point("anamnesis")
-        workflow.add_edge("anamnesis", "diagnosis")
-        workflow.add_edge("diagnosis", "planning")
+        # MODIFICADO: Apontando o ponto de entrada para o nome do nó correto.
+        workflow.set_entry_point("anamnesis_step")
+        
+        # MODIFICADO: Atualizando as arestas com os novos nomes dos nós.
+        workflow.add_edge("anamnesis_step", "diagnosis_step")
+        workflow.add_edge("diagnosis_step", "planning_step")
         
         # A transição após a verificação é condicional
+        # MODIFICADO: Atualizando a aresta condicional com os novos nomes dos nós.
         workflow.add_conditional_edges(
-            "planning", # Começa no nó de planejamento
+            "planning_step", # Começa no nó de planejamento
             self.prepare_for_verification, # Primeiro executa esta função
             {
-                "replan": "planning", # Se precisar replanejar, volta para o planejamento
+                "replan": "planning_step", # Se precisar replanejar, volta para o planejamento
                 "end": END # Se for seguro, termina o fluxo
             }
         )
@@ -92,6 +95,8 @@ class TherapeuticWorkflowGraph:
         from agents import run_verification_agent
         
         # Roda a verificação como parte da lógica de transição
+        # A verificação não precisa mais ser um nó explícito, pois é chamada aqui.
+        # No entanto, a função do agente ainda é necessária.
         verification_result_state = run_verification_agent(state)
         state.update(verification_result_state) # Atualiza o estado com o resultado da verificação
         
@@ -104,7 +109,11 @@ class TherapeuticWorkflowGraph:
             logger.warning(f"Verificação para paciente {state.get('patient_id')} falhou ou requer replanejamento. Voltando para o planejamento.")
             # Prepara as instruções para o replanejamento
             new_replan_instructions = f"Correção necessária: {verification_data.get('notes', 'N/A')}"
-            state["replan_instructions"] = state.get("replan_instructions", []) + [new_replan_instructions]
+            # O estado é um dicionário, então podemos modificar a lista diretamente se ela já existir.
+            if "replan_instructions" in state:
+                state["replan_instructions"].append(new_replan_instructions)
+            else:
+                state["replan_instructions"] = [new_replan_instructions]
             return "replan"
 
     async def run_single_patient_flow(self, patient_id: str, initial_data: str):
