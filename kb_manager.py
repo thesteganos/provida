@@ -25,14 +25,15 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredFileLoader
 from langchain_community.vectorstores import FAISS
+# MODIFICADO: Importando Neo4jGraph do local correto.
+from langchain_community.graphs import Neo4jGraph
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import numpy as np
 
 # Módulos locais
 from config_loader import config
-# MODIFICADO: A importação de Neo4jGraph foi removida do topo para quebrar a dependência circular.
-# from graph import Neo4jGraph
+# A importação do graph.py local foi removida pois não era a fonte correta.
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +55,23 @@ class KnowledgeBaseManager:
         
         logger.info("Inicializando KnowledgeBaseManager...")
 
-        # MODIFICADO: A importação é feita aqui, dentro do método __init__.
-        from graph import Neo4jGraph
-
         # Carrega configurações do arquivo YAML
         self.rag_config = config.get_rag_config()
         self.model_config = config.get_model_config('embedding')
+        self.neo4j_config = config.get_neo4j_config() # Pega a config do Neo4j
 
         # Inicializa o cliente Neo4j
-        self.graph = Neo4jGraph()
+        # MODIFICADO: Instanciando a classe Neo4jGraph importada com as credenciais corretas.
+        try:
+            self.graph = Neo4jGraph(
+                url=self.neo4j_config.get("uri"),
+                username=self.neo4j_config.get("user"),
+                password=self.neo4j_config.get("password")
+            )
+            logger.info("Conexão com Neo4j estabelecida através do LangChain.")
+        except Exception as e:
+            logger.critical(f"Falha ao conectar com o Neo4j: {e}", exc_info=True)
+            raise RuntimeError(f"Não foi possível conectar ao Neo4j: {e}") from e
 
         # Inicializa o modelo de embedding
         try:
@@ -115,6 +124,41 @@ class KnowledgeBaseManager:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
+    def create_document_node(self, file_path: str, file_hash: str, status: str, metadata: Optional[Dict] = None):
+        """Cria um nó de Documento no Neo4j para rastreamento."""
+        query = """
+        MERGE (d:Document {hash: $hash})
+        ON CREATE SET d.filePath = $filePath, d.status = $status, d.createdAt = timestamp()
+        ON MATCH SET d.status = $status, d.updatedAt = timestamp()
+        """
+        params = {
+            "hash": file_hash,
+            "filePath": file_path,
+            "status": status,
+        }
+        if metadata:
+            for key, value in metadata.items():
+                query += f" SET d.{key} = ${key}"
+                params[key] = value
+        
+        self.graph.query(query, params)
+        logger.info(f"Nó de Documento criado/atualizado para hash: {file_hash[:8]}")
+
+    def add_patient_data(self, patient_id: str, data: Dict[str, Any]):
+        """Adiciona ou atualiza dados de um paciente no grafo Neo4j."""
+        query = """
+        MERGE (p:Patient {id: $id})
+        SET p += $props, p.updatedAt = timestamp()
+        """
+        props = data.copy()
+        params = {
+            "id": patient_id,
+            "props": props
+        }
+        self.graph.query(query, params)
+        logger.info(f"Dados do paciente {patient_id} adicionados/atualizados no grafo.")
+
+
     def ingest_new_document(self, file_path: str) -> str:
         """
         Processa e ingere um novo documento (PDF, etc.) na base de conhecimento.
@@ -154,7 +198,7 @@ class KnowledgeBaseManager:
             if self.is_semantically_duplicate(full_text):
                  logger.warning(f"Documento '{file_path}' é semanticamente similar a um existente. Ingestão pulada.")
                  # Ainda assim, cria o nó do documento para rastrear que ele foi visto
-                 self.graph.create_document_node(
+                 self.create_document_node(
                     file_path=file_path,
                     file_hash=file_hash,
                     status="skipped_semantic_duplicate"
@@ -181,7 +225,7 @@ class KnowledgeBaseManager:
             logger.info(f"Vector store FAISS salvo em '{self.faiss_persist_path}'.")
 
             # Cria um nó no Neo4j para rastrear o documento processado
-            self.graph.create_document_node(
+            self.create_document_node(
                 file_path=file_path,
                 file_hash=file_hash,
                 status="ingested_successfully",
