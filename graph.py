@@ -19,8 +19,8 @@ Principais componentes:
 import logging
 from typing import TypedDict, List, Annotated
 from langgraph.graph import StateGraph, END
-# MODIFICADO: A importação do SqliteSaver foi corrigida para o novo caminho.
-from langgraph.checkpoints import SqliteSaver # Para persistência do estado
+# MODIFICADO: A importação do SqliteSaver foi corrigida para o caminho definitivo no pacote langchain_community.
+from langchain_community.checkpoints import SqliteSaver # Para persistência do estado
 
 # A importação de 'agents' foi removida do topo para quebrar a dependência circular.
 # A importação será feita dentro da função que a utiliza.
