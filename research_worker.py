@@ -287,7 +287,7 @@ class ResearchAgent:
                             format_instructions=self.analysis_parser.get_format_instructions()
                         ).to_messages()
 
-                        llm_response = await config.throttled_google_acall(self.analyzer_llm, {"input": llm_response_messages} if hasattr(self.analyzer_llm, 'invoke') else llm_response_messages)
+                        llm_response = await config.throttled_google_acall(self.analyzer_llm, llm_response_messages)
                         llm_response_content = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
 
                         try:
