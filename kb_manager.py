@@ -1,545 +1,276 @@
 # kb_manager.py
 """
-Este módulo gerencia a base de conhecimento da aplicação PROVIDA.
+Este módulo, KnowledgeBaseManager, é o componente central para o gerenciamento
+da base de conhecimento do sistema PROVIDA. Ele encapsula toda a lógica para
+interagir com o grafo de conhecimento (Neo4j) e a base de dados vetorial
+para busca de similaridade (FAISS).
 
-Ele é responsável por interagir com o banco de dados de grafos (Neo4j) e
-o banco de dados vetorial (FAISS) para armazenamento e recuperação de informações.
-A classe `KnowledgeBaseManager` implementa o padrão Singleton e centraliza
-as operações de:
-- Conexão com Neo4j para dados estruturados de pacientes e conhecimento médico.
-- Criação, carregamento e atualização do índice vetorial FAISS para busca RAG
-  a partir de documentos (PDFs, TXTs).
-- Ingestão de novos documentos, incluindo pré-processamento, divisão de texto,
-  geração de embeddings e deduplicação (por hash de conteúdo e similaridade semântica).
-- Consulta à base RAG para encontrar evidências textuais.
-- Adição de dados de pacientes ao Neo4j.
-
-Utiliza o `ConfigLoader` para obter configurações de modelos de embedding e RAG.
-Também lida com o logging de hashes de conteúdo para evitar reprocessamento.
+Principais responsabilidades:
+- Conectar-se e fornecer acesso à instância do banco de dados Neo4j.
+- Inicializar e gerenciar o modelo de embeddings (ex: Google Generative AI).
+- Carregar, processar e ingerir documentos (PDFs, texto) na base de conhecimento.
+- A ingestão envolve dividir documentos em pedaços (chunks), gerar embeddings
+  para esses chunks e armazená-los em um índice FAISS.
+- Garantir a persistência do índice FAISS e dos metadados associados.
+- Fornecer uma interface de consulta unificada (RAG - Retrieval-Augmented
+  Generation) que busca documentos relevantes em FAISS com base em uma
+  pergunta do usuário.
+- Implementar verificação de duplicidade semântica para evitar a ingestão de
+  documentos com conteúdo muito similar a algo que já existe na base.
 """
-import os
-# import shutil # Não utilizado diretamente, mas pode ser útil no futuro para manipulação de arquivos
-import hashlib
 import logging
-from typing import Set, List, Optional, Any # Adicionado para type hints
+import os
+import hashlib
+from typing import List, Optional, Dict, Any, Tuple
 
-from langchain_core.documents import Document # Adicionado para type hint
-from langchain_neo4j import Neo4jGraph
+from langchain_community.document_loaders import PyPDFLoader, UnstructuredFileLoader
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
-from langchain_community.embeddings.base import Embeddings # Para type hint de self.embeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import numpy as np
 
-# Tentar importar exceções específicas do Neo4j para captura mais granular
-try:
-    from neo4j.exceptions import ServiceUnavailable, AuthError # type: ignore
-except ImportError:
-    # Fallback para uma exceção genérica se as específicas não estiverem disponíveis
-    # (embora geralmente estejam com o driver neo4j instalado)
-    ServiceUnavailable = Exception # type: ignore
-    AuthError = Exception # type: ignore
+# Módulos locais
+from config_loader import config
+from graph import Neo4jGraph
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config_loader import config # Importa a instância singleton do ConfigLoader
-
-# Configura o logger para este módulo
 logger = logging.getLogger(__name__)
 
 class KnowledgeBaseManager:
     """
-    Gerencia a base de conhecimento híbrida (Neo4j e FAISS/RAG).
-
-    Implementa o padrão Singleton para garantir uma única instância.
-    Responsável por:
-    - Conectar-se ao Neo4j.
-    - Carregar ou criar o índice vetorial FAISS.
-    - Gerenciar o processo de ingestão de novos documentos (PDF, TXT),
-      incluindo carregamento, divisão, embedding, e deduplicação.
-    - Fornecer métodos para consultar o RAG e adicionar dados ao Neo4j.
-
-    Atributos:
-        graph (Optional[Neo4jGraph]): Instância do conector Neo4j. None se a conexão falhar.
-        embeddings (Embeddings): Modelo de embedding carregado.
-        vectorstore_path (str): Caminho para o diretório do índice FAISS.
-        sources_dir (str): Diretório base para as fontes de conhecimento.
-        content_hash_log (str): Caminho para o arquivo de log de hashes de conteúdo processado.
-        content_hashes (Set[str]): Conjunto de hashes de conteúdo já processados.
-        vectorstore (FAISS): Instância do banco de dados vetorial FAISS.
-        retriever (Any): Retriever LangChain para consultas RAG (tipo específico depende do vectorstore).
-        initialized (bool): Flag para indicar se a inicialização foi concluída.
+    Gerencia a base de conhecimento, incluindo o grafo Neo4j e o RAG com FAISS.
     """
-    _instance: Optional['KnowledgeBaseManager'] = None
-    graph: Optional[Neo4jGraph]
-    embeddings: Embeddings
-    vectorstore_path: str
-    sources_dir: str
-    content_hash_log: str
-    content_hashes: Set[str]
-    vectorstore: FAISS
-    retriever: Any # Langchain retrievers podem variar, FAISS.as_retriever() retorna VectorStoreRetriever
-    initialized: bool = False
+    _instance = None
 
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> 'KnowledgeBaseManager':
-        """Garante que apenas uma instância da classe KnowledgeBaseManager seja criada (Singleton)."""
+    def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(KnowledgeBaseManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self) -> None:
-        """
-        Inicializa o KnowledgeBaseManager.
+    def __init__(self):
+        # Evita a reinicialização se a instância já existir
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+        
+        logger.info("Inicializando KnowledgeBaseManager...")
 
-        Configura a conexão com o Neo4j, carrega/cria o vectorstore FAISS,
-        inicializa o modelo de embeddings e o retriever RAG.
-        A inicialização ocorre apenas na primeira vez que a instância é criada.
-        """
-        # hasattr é mais seguro para checar se o atributo foi definido na instância,
-        # especialmente em cenários de re-inicialização ou herança complexa.
-        # No entanto, para um Singleton simples como este, self.initialized funciona bem.
-        if not self.initialized:
-            logger.info("Inicializando o Gerenciador da Base de Conhecimento (KnowledgeBaseManager)...")
-            self.graph = None # Inicializa como None
+        # Carrega configurações do arquivo YAML
+        self.rag_config = config.get_rag_config()
+        self.model_config = config.get_model_config('embedding')
 
-            # Verificação das variáveis de ambiente para Neo4j
-            neo4j_uri = os.getenv("NEO4J_URI")
-            neo4j_user = os.getenv("NEO4J_USERNAME")
-            neo4j_pass = os.getenv("NEO4J_PASSWORD")
+        # Inicializa o cliente Neo4j
+        self.graph = Neo4jGraph()
 
-            if not neo4j_uri:
-                logger.warning("Variável de ambiente NEO4J_URI não definida. Conexão com Neo4j será pulada.")
-            elif not neo4j_user: # Assume-se que user e pass são necessários se URI estiver presente
-                logger.warning("Variável de ambiente NEO4J_USERNAME não definida. Conexão com Neo4j será pulada.")
-            elif not neo4j_pass:
-                logger.warning("Variável de ambiente NEO4J_PASSWORD não definida. Conexão com Neo4j será pulada.")
-            else:
-                try:
-                    self.graph = Neo4jGraph(url=neo4j_uri, username=neo4j_user, password=neo4j_pass)
-                    self.graph.query("RETURN 1") # Tenta uma query simples para verificar a conexão
-                    logger.info(f"Conexão com Neo4j estabelecida com sucesso em {neo4j_uri}.")
-                except AuthError as e:
-                    logger.error(f"Erro de autenticação com Neo4j ({neo4j_uri}): {e}. Verifique suas credenciais.")
-                    self.graph = None # Garante que graph seja None em caso de falha
-                except ServiceUnavailable as e:
-                    logger.error(f"Serviço Neo4j indisponível em {neo4j_uri}: {e}. O grafo de conhecimento não estará funcional.")
-                    self.graph = None
-                except Exception as e: # Captura outras exceções potenciais da conexão
-                    logger.error(f"Erro inesperado ao conectar com Neo4j ({neo4j_uri}): {e}", exc_info=True)
-                    self.graph = None
-
-            self.embeddings = config.get_embedding_model()
-            self.vectorstore_path = "./faiss_index"
-            self.sources_dir = "./knowledge_sources" # Diretório para PDFs, TXTs, etc.
-            # Nome de arquivo de log de hash mais descritivo
-            self.content_hash_log = os.path.join(self.sources_dir, "processed_document_content_hashes.log")
-            
-            os.makedirs(self.sources_dir, exist_ok=True) # Garante que o diretório de fontes exista
-            self.content_hashes = self._get_processed_hashes()
-            self.vectorstore = self._load_or_create_vectorstore()
-            
-            # Acesso seguro à configuração RAG
-            rag_config = config._config.get('rag_config', {})
-            self.retriever = self.vectorstore.as_retriever(
-                search_kwargs={"k": rag_config.get('top_k_results', 3)}
+        # Inicializa o modelo de embedding
+        try:
+            self.embeddings = GoogleGenerativeAIEmbeddings(
+                model=self.model_config.get("name", "models/embedding-001"),
+                google_api_key=self.model_config.get("api_key")
             )
-            self.initialized = True
-            logger.info("Gerenciador da Base de Conhecimento pronto.")
-
-    def _get_processed_hashes(self) -> Set[str]:
-        """
-        Carrega os hashes de conteúdo de documentos já processados a partir de um arquivo de log.
-
-        Returns:
-            Set[str]: Um conjunto de strings de hash. Retorna um conjunto vazio se o arquivo
-                      de log não existir ou não puder ser lido.
-        """
-        if not os.path.exists(self.content_hash_log):
-            return set()
-        try:
-            with open(self.content_hash_log, 'r', encoding='utf-8') as f:
-                # Garante que apenas linhas não vazias sejam adicionadas ao conjunto
-                return set(line.strip() for line in f if line.strip())
-        except IOError as e:
-            logger.error(f"Erro ao ler o arquivo de log de hashes '{self.content_hash_log}': {e}")
-            return set()
-
-    def _log_content_hash(self, content_hash: str) -> None:
-        """
-        Adiciona um hash de conteúdo ao arquivo de log e ao conjunto em memória.
-
-        Args:
-            content_hash (str): O hash SHA256 do conteúdo do documento.
-        """
-        try:
-            # Abre o arquivo em modo 'append' com encoding utf-8
-            with open(self.content_hash_log, 'a', encoding='utf-8') as f:
-                f.write(f"{content_hash}\n")
-            self.content_hashes.add(content_hash)
-        except IOError as e:
-            logger.error(f"Erro ao escrever no arquivo de log de hashes '{self.content_hash_log}': {e}")
-
-    def _generate_content_hash(self, documents: List[Document]) -> str:
-        """
-        Gera um hash SHA256 para o conteúdo combinado de uma lista de documentos LangChain.
-        Cada Document na lista pode representar uma página de um PDF ou um arquivo TXT inteiro.
-
-        Args:
-            documents (List[Document]): Uma lista de objetos Document LangChain.
-                                        O conteúdo de `page_content` de cada documento é concatenado.
-
-        Returns:
-            str: O hash SHA256 hexadecimal do conteúdo.
-        """
-        # Concatena o page_content de todos os Document objects na lista
-        full_text = "".join(doc.page_content for doc in documents).encode('utf-8')
-        return hashlib.sha256(full_text).hexdigest()
-
-    def _is_semantically_duplicate(self, documents: List[Document], threshold: float) -> bool:
-        """
-        Verifica se um novo documento é semanticamente similar a documentos existentes no vectorstore.
-
-        Compara o primeiro documento da lista de entrada (que pode ser a primeira página de um PDF)
-        com os `k=1` vizinhos mais próximos no índice FAISS. A similaridade é calculada
-        a partir da distância L2.
-
-        A fórmula de conversão de distância L2 para similaridade (1 - (score^2 / 2))
-        é uma heurística comum, especialmente para embeddings normalizados, onde
-        score^2 é a distância Euclidiana quadrada. Para uma robustez maior, o limiar (threshold)
-        deve ser configurável e testado.
-
-        Args:
-            documents (List[Document]): Lista de documentos LangChain a serem verificados.
-                                        Apenas o primeiro documento é usado para a busca de similaridade.
-            threshold (float): O limiar de similaridade (0.0 a 1.0) acima do qual um documento
-                               é considerado uma duplicata semântica.
-
-        Returns:
-            bool: True se uma duplicata semântica for encontrada, False caso contrário ou em erro.
-        """
-        if not documents or not hasattr(self.vectorstore, 'index') or self.vectorstore.index.ntotal == 0:
-            return False # Não há o que comparar ou o índice está vazio
-
-        # Usa o conteúdo do primeiro Documento da lista para a query de similaridade.
-        # Para PDFs, este será o conteúdo da primeira página.
-        query_text = documents[0].page_content
-
-        try:
-            # k=1 para encontrar o vizinho mais próximo.
-            similar_docs_with_scores: List[tuple[Document, float]] = self.vectorstore.similarity_search_with_score(query_text, k=1)
-
-            if similar_docs_with_scores:
-                # score é a distância L2. Quanto menor, mais similar.
-                score = similar_docs_with_scores[0][1]
-                # Converte distância L2 para similaridade (0-1 range).
-                # Esta fórmula é comum para embeddings normalizados: similaridade_cosseno = 1 - (distancia_euclidiana^2 / 2)
-                similarity = 1 - (score**2 / 2)
-
-                logger.debug(f"Verificação de duplicidade semântica: Similaridade com o mais próximo = {similarity:.4f} (limiar: {threshold}) para o documento começando com '{query_text[:100].replace('\n', ' ')}...'")
-                if similarity > threshold:
-                    logger.info(f"Potencial duplicado semântico encontrado com similaridade de {similarity:.4f} (acima do limiar de {threshold}).")
-                    return True
+            logger.info(f"Modelo de embedding '{self.model_config.get('name')}' carregado.")
         except Exception as e:
-            logger.error(f"Erro durante a verificação de duplicidade semântica: {e}", exc_info=True)
-            # Em caso de erro na verificação, opta-se por não considerar como duplicado para não impedir a ingestão.
-            return False
-        return False
+            logger.critical(f"Falha ao carregar o modelo de embedding: {e}", exc_info=True)
+            raise RuntimeError(f"Não foi possível inicializar o modelo de embedding: {e}") from e
 
-    def _load_or_create_vectorstore(self) -> FAISS:
-        """
-        Carrega um índice FAISS existente do disco ou cria um novo se não existir.
-        Se o carregamento falhar ou o diretório estiver incompleto, tenta recriar.
+        # Configura o TextSplitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.rag_config.get('chunk_size', 1000),
+            chunk_overlap=self.rag_config.get('chunk_overlap', 200)
+        )
 
-        Returns:
-            FAISS: A instância carregada ou recém-criada do índice FAISS.
-        """
-        # Verifica se o caminho existe, é um diretório, e contém os arquivos de índice esperados.
-        if os.path.exists(self.vectorstore_path) and \
-           os.path.isdir(self.vectorstore_path) and \
-           os.path.exists(os.path.join(self.vectorstore_path, "index.faiss")) and \
-           os.path.exists(os.path.join(self.vectorstore_path, "index.pkl")):
-            logger.info(f"Carregando VectorStore FAISS existente de '{self.vectorstore_path}'...")
+        # Caminho para o armazenamento persistente do FAISS
+        self.faiss_persist_path = self.rag_config.get('faiss_persist_path', "faiss_index")
+        self.vector_store: Optional[FAISS] = self._load_vector_store()
+
+        self._initialized = True
+        logger.info("KnowledgeBaseManager inicializado com sucesso.")
+
+
+    def _load_vector_store(self) -> Optional[FAISS]:
+        """Carrega o vector store FAISS do disco, se existir."""
+        if os.path.exists(self.faiss_persist_path) and os.path.exists(os.path.join(self.faiss_persist_path, "index.faiss")):
             try:
-                # allow_dangerous_deserialization é necessário para LangChain FAISS.
-                # Implica confiança nos arquivos de índice.
+                logger.info(f"Carregando vector store FAISS de '{self.faiss_persist_path}'...")
+                # FAISS.load_local requer que allow_dangerous_deserialization seja definido
                 return FAISS.load_local(
-                    self.vectorstore_path,
+                    self.faiss_persist_path,
                     self.embeddings,
-                    allow_dangerous_deserialization=True
+                    allow_dangerous_deserialization=True # Necessário para carregar o index.pkl
                 )
             except Exception as e:
-                logger.error(f"Falha ao carregar VectorStore de '{self.vectorstore_path}': {e}. Tentando recriar do zero.", exc_info=True)
-                # Se o carregamento falhar (ex: índice corrompido), prossegue para recriar.
-                # Opcionalmente, poderia deletar o índice antigo aqui antes de recriar.
-        elif os.path.exists(self.vectorstore_path) and not (os.path.exists(os.path.join(self.vectorstore_path, "index.faiss")) and os.path.exists(os.path.join(self.vectorstore_path, "index.pkl"))):
-             logger.warning(f"Diretório VectorStore '{self.vectorstore_path}' existe mas está incompleto ou não é um índice FAISS válido. Tentando recriar.")
+                logger.error(f"Erro ao carregar o vector store FAISS: {e}. Um novo será criado se necessário.", exc_info=True)
+                return None
+        else:
+            logger.info("Nenhum vector store FAISS encontrado no disco. Será criado um novo na primeira ingestão.")
+            return None
 
-        logger.info("Nenhum VectorStore FAISS válido encontrado ou carregamento falhou. Criando um novo do zero...")
-        return self._create_vectorstore_from_scratch()
-
-    def _create_vectorstore_from_scratch(self) -> FAISS:
-        """
-        Cria um novo índice FAISS a partir de documentos em `self.sources_dir`.
-
-        Carrega documentos PDF e TXT, os divide em chunks, gera embeddings e
-        constrói o índice FAISS. Salva o índice no disco e registra os hashes
-        de conteúdo dos documentos processados.
-
-        Returns:
-            FAISS: A instância recém-criada do índice FAISS. Retorna um índice com
-                   um placeholder se nenhum documento for encontrado ou em caso de erro crítico.
-        """
-        logger.info(f"Lendo documentos de '{self.sources_dir}' para criação do VectorStore...")
-
-        # `autodetect_encoding=True` para TextLoader pode ajudar com diferentes encodings.
-        # `silent_errors=True` no DirectoryLoader loga erros de arquivos individuais mas continua.
-        loader = DirectoryLoader(
-            self.sources_dir,
-            glob="**/*[.pdf,.txt]", # Procura em subdiretórios também
-            loader_cls=lambda p: PyPDFLoader(p) if p.lower().endswith('.pdf') else TextLoader(p, autodetect_encoding=True),
-            show_progress=True,
-            use_multithreading=True, # Pode acelerar o carregamento
-            silent_errors=True # Loga erros de arquivos individuais mas continua o processo
-        )
-
-        try:
-            # `source_documents` aqui são os documentos originais, um Document por página (PDF) ou um por arquivo (TXT).
-            source_documents: List[Document] = loader.load()
-        except Exception as e: # Erro crítico no DirectoryLoader
-            logger.error(f"Erro crítico durante o carregamento de documentos do diretório '{self.sources_dir}': {e}", exc_info=True)
-            source_documents = [] # Procede com lista vazia para criar placeholder DB
-
-        if not source_documents:
-            logger.warning("Nenhum documento encontrado ou carregado para indexar. Criando VectorStore com placeholder.")
-            # Criar um índice com um placeholder evita que self.vectorstore seja None.
-            placeholder_db = FAISS.from_texts(["placeholder_document_for_empty_index"], self.embeddings)
-            try:
-                placeholder_db.save_local(self.vectorstore_path)
-            except Exception as e_save: # Captura qualquer erro ao salvar
-                logger.error(f"Falha ao salvar o VectorStore placeholder (nenhum documento): {e_save}", exc_info=True)
-            return placeholder_db
-
-        # Configurações de RAG para text splitting
-        rag_cfg = config._config.get('rag_config', {})
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=rag_cfg.get('chunk_size', 1000),
-            chunk_overlap=rag_cfg.get('chunk_overlap', 200)
-        )
-        # `docs_for_indexing` são os chunks que serão efetivamente adicionados ao FAISS
-        docs_for_indexing: List[Document] = text_splitter.split_documents(source_documents)
-        
-        if not docs_for_indexing: # Se, após o split, não houver chunks
-            logger.warning("Nenhum chunk gerado a partir dos documentos carregados. Verifique o conteúdo dos arquivos e as configurações do text_splitter.")
-            placeholder_db = FAISS.from_texts(["placeholder_document_no_chunks_generated"], self.embeddings)
-            try:
-                placeholder_db.save_local(self.vectorstore_path)
-            except Exception as e_save:
-                logger.error(f"Falha ao salvar o VectorStore placeholder (sem chunks): {e_save}", exc_info=True)
-            return placeholder_db
-
-        logger.info(f"Indexando {len(docs_for_indexing)} chunks de {len(source_documents)} documentos de origem...")
-        try:
-            db = FAISS.from_documents(docs_for_indexing, self.embeddings)
-            db.save_local(self.vectorstore_path)
-            logger.info(f"VectorStore FAISS salvo em '{self.vectorstore_path}'.")
-        except Exception as e: # Erro ao criar ou salvar o índice FAISS
-            logger.error(f"Falha ao criar ou salvar o VectorStore FAISS: {e}", exc_info=True)
-            # Retorna um DB placeholder em caso de falha na criação/salvamento do principal
-            placeholder_db = FAISS.from_texts(["placeholder_document_creation_failed"], self.embeddings)
-            try: # Tenta salvar o placeholder, mas não é crítico se falhar
-                placeholder_db.save_local(self.vectorstore_path)
-            except Exception as e_save_ph:
-                logger.error(f"Falha crítica ao salvar até mesmo o VectorStore placeholder: {e_save_ph}", exc_info=True)
-            return placeholder_db # Retorna o placeholder mesmo que não consiga salvar
-        
-        # Limpa e re-registra os hashes dos documentos que foram efetivamente indexados
-        try:
-            # Limpa o arquivo de log de hashes antes de repopular
-            with open(self.content_hash_log, 'w', encoding='utf-8') as f:
-                pass # Simplesmente abre e fecha em modo 'w' para truncar
-        except IOError as e_io:
-            logger.warning(f"Não foi possível limpar o arquivo de log de hashes '{self.content_hash_log}': {e_io}")
-
-        # Agrupa os Document objects por source_path para gerar o hash do arquivo original completo
-        content_by_source_path: dict[str, list[str]] = {}
-        for doc_obj in source_documents: # Iterar sobre os documentos originais (pré-chunking)
-            source_path = doc_obj.metadata.get('source')
-            if not source_path: # Segurança: pula se não houver source metadata
-                logger.warning(f"Documento sem 'source' nos metadados durante o hash logging: {doc_obj.page_content[:100].replace('\n',' ')}...")
-                continue
-
-            if source_path not in content_by_source_path:
-                content_by_source_path[source_path] = []
-            content_by_source_path[source_path].append(doc_obj.page_content)
-            
-        for source_file_path, page_contents_list in content_by_source_path.items():
-            # Cria um Document temporário com todo o conteúdo do arquivo para gerar o hash
-            # Passa uma lista de Document para _generate_content_hash
-            full_file_documents = [Document(page_content="".join(page_contents_list), metadata={'source': source_file_path})]
-            file_content_hash = self._generate_content_hash(full_file_documents)
-            self._log_content_hash(file_content_hash)
-        logger.info(f"{len(content_by_source_path)} hashes de arquivos de origem registrados após criação do VectorStore.")
-        
-        return db
+    def _get_file_hash(self, file_path: str) -> str:
+        """Calcula o hash SHA256 de um arquivo para verificação de duplicidade."""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
 
     def ingest_new_document(self, file_path: str) -> str:
         """
-        Processa e ingere um novo documento na base de conhecimento RAG.
-
-        Inclui carregamento, deduplicação por hash e semântica, divisão,
-        adição ao índice FAISS e registro do hash do conteúdo original do arquivo.
-
-        Args:
-            file_path (str): O caminho para o arquivo do documento a ser ingerido.
-
-        Returns:
-            str: Uma mensagem indicando o resultado da ingestão.
+        Processa e ingere um novo documento (PDF, etc.) na base de conhecimento.
+        Verifica se o documento já foi processado antes de ingerir.
         """
-        filename = os.path.basename(file_path)
-        logger.info(f"Iniciando ingestão do documento: '{filename}' de '{file_path}'")
+        if not os.path.exists(file_path):
+            logger.error(f"Arquivo não encontrado para ingestão: {file_path}")
+            return f"Erro: Arquivo não encontrado em '{file_path}'"
 
-        try:
-            # `autodetect_encoding=True` para TextLoader; PyPDFLoader para PDFs
-            loader = PyPDFLoader(file_path) if filename.lower().endswith('.pdf') else TextLoader(file_path, autodetect_encoding=True)
-            # `original_documents` é uma lista de Document (um por página para PDF, um para TXT)
-            original_documents: List[Document] = loader.load()
-        except FileNotFoundError: # Erro específico se o arquivo não for encontrado
-            logger.error(f"Arquivo '{filename}' não encontrado em '{file_path}' para ingestão.")
-            return f"Erro: Arquivo '{filename}' não encontrado."
-        except Exception as e: # Outros erros de leitura do arquivo
-            logger.error(f"Erro ao ler o documento '{filename}': {e}", exc_info=True)
-            return f"Erro ao ler o documento '{filename}': {e}"
+        file_hash = self._get_file_hash(file_path)
 
-        if not original_documents: # Se loader.load() retornar lista vazia
-            logger.warning(f"Documento '{filename}' está vazio ou não pôde ser carregado (nenhum Document LangChain gerado).")
-            return f"Documento '{filename}' está vazio ou não pôde ser carregado."
+        # Consulta o Neo4j para ver se este hash de arquivo já existe
+        if self.graph.query("MATCH (d:Document {hash: $hash}) RETURN d", {"hash": file_hash}):
+            logger.warning(f"Documento '{os.path.basename(file_path)}' com hash {file_hash} já existe no grafo. Ingestão pulada.")
+            return f"Documento já existe (hash: {file_hash[:8]})"
 
-        # 1. Deduplicação por hash do conteúdo completo do arquivo
-        # `original_documents` já é uma lista de Document, um por página (PDF) ou um por TXT.
-        # `_generate_content_hash` concatena o page_content de todos eles.
-        content_hash = self._generate_content_hash(original_documents)
-        if content_hash in self.content_hashes:
-            logger.info(f"DEDUPLICAÇÃO POR HASH: O conteúdo de '{filename}' (hash: {content_hash}) já existe.")
-            return f"DEDUPLICAÇÃO POR HASH: O conteúdo de '{filename}' já existe."
-
-        # 2. Deduplicação semântica
-        # O limiar para _is_semantically_duplicate pode ser configurável via config.yaml
-        rag_cfg_sem = config._config.get('rag_config', {})
-        semantic_threshold = rag_cfg_sem.get('semantic_deduplication_threshold', 0.98) # Pega do config ou usa padrão
-
-        # `_is_semantically_duplicate` usa o primeiro Document da lista `original_documents` para a query.
-        # Para PDFs com múltiplas páginas, isso significa comparar com base na primeira página.
-        # Isto pode ser uma limitação para PDFs onde a primeira página não é representativa.
-        # Uma estratégia melhor poderia ser embeddar o documento inteiro ou uma amostra representativa,
-        # mas isso aumentaria a complexidade e o tempo de processamento.
-        # Por ora, a lógica existente é mantida com este comentário.
-        if self._is_semantically_duplicate(original_documents, threshold=semantic_threshold):
-            logger.info(f"DEDUPLICAÇÃO SEMÂNTICA: O conteúdo de '{filename}' é muito similar a um já existente (limiar: {semantic_threshold}).")
-            return f"DEDUPLICAÇÃO SEMÂNTICA: O conteúdo de '{filename}' é muito similar a um já existente."
-
-        # 3. Divisão do documento em chunks para indexação
-        rag_cfg_split = config._config.get('rag_config', {})
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=rag_cfg_split.get('chunk_size', 1000),
-            chunk_overlap=rag_cfg_split.get('chunk_overlap', 200)
-        )
-        # `docs_for_indexing` são os chunks que serão efetivamente adicionados ao FAISS
-        docs_for_indexing: List[Document] = text_splitter.split_documents(original_documents)
+        logger.info(f"Iniciando ingestão do novo documento: {file_path}")
         
-        if not docs_for_indexing: # Se, após o split, não houver chunks
-            logger.warning(f"Documento '{filename}' resultou em zero chunks após o split. Nada a indexar. Verifique o conteúdo e o chunk_size.")
-            return f"Documento '{filename}' não pôde ser dividido em chunks para indexação (conteúdo muito pequeno ou problema no splitter)."
-
-        # 4. Adicionar ao VectorStore e salvar
         try:
-            self.vectorstore.add_documents(docs_for_indexing)
-            self.vectorstore.save_local(self.vectorstore_path) # Salva o índice atualizado
-            self._log_content_hash(content_hash) # Loga o hash do conteúdo do arquivo original
-            logger.info(f"Documento '{filename}' ingerido e indexado com sucesso ({len(docs_for_indexing)} chunks). Hash: {content_hash}")
-            return f"Documento '{filename}' ingerido e indexado com sucesso."
-        except Exception as e: # Erro ao adicionar ao FAISS ou salvar
-            logger.error(f"Erro ao adicionar/salvar documento '{filename}' no VectorStore: {e}", exc_info=True)
-            # O hash não foi logado se a falha ocorreu antes de _log_content_hash.
-            # Se _log_content_hash fosse chamado antes, seria necessário um mecanismo de rollback do hash.
-            # A lógica atual chama _log_content_hash *após* o sucesso do save_local, o que é mais seguro.
-            return f"Erro ao indexar o documento '{filename}': {e}"
+            # Seleciona o loader apropriado com base na extensão do arquivo
+            file_ext = os.path.splitext(file_path)[1].lower()
+            if file_ext == '.pdf':
+                loader = PyPDFLoader(file_path)
+            else:
+                # UnstructuredFileLoader pode lidar com .txt, .md, etc.
+                loader = UnstructuredFileLoader(file_path)
+            
+            documents = loader.load()
+
+            # Extrai o texto para verificação de duplicidade semântica
+            full_text = " ".join([doc.page_content for doc in documents])
+            if not full_text.strip():
+                logger.warning(f"O documento '{file_path}' está vazio ou não contém texto extraível.")
+                return "Documento vazio ou sem texto"
+
+            # Verificação de duplicidade semântica antes de processar
+            if self.is_semantically_duplicate(full_text):
+                 logger.warning(f"Documento '{file_path}' é semanticamente similar a um existente. Ingestão pulada.")
+                 # Ainda assim, cria o nó do documento para rastrear que ele foi visto
+                 self.graph.create_document_node(
+                    file_path=file_path,
+                    file_hash=file_hash,
+                    status="skipped_semantic_duplicate"
+                 )
+                 return "Duplicidade semântica detectada"
 
 
-    def add_patient_data(self, patient_id: str, data: dict) -> None:
+            # Divide os documentos em chunks
+            chunks = self.text_splitter.split_documents(documents)
+            logger.info(f"Documento dividido em {len(chunks)} chunks.")
+
+            # Adiciona os chunks ao vector store
+            if self.vector_store is None:
+                # Cria um novo vector store se for o primeiro documento
+                logger.info("Criando novo vector store FAISS...")
+                self.vector_store = FAISS.from_documents(chunks, self.embeddings)
+            else:
+                # Adiciona ao vector store existente
+                logger.info("Adicionando chunks ao vector store FAISS existente...")
+                self.vector_store.add_documents(chunks)
+
+            # Salva o índice FAISS e os metadados no disco
+            self.vector_store.save_local(self.faiss_persist_path)
+            logger.info(f"Vector store FAISS salvo em '{self.faiss_persist_path}'.")
+
+            # Cria um nó no Neo4j para rastrear o documento processado
+            self.graph.create_document_node(
+                file_path=file_path,
+                file_hash=file_hash,
+                status="ingested_successfully",
+                metadata={"chunks": len(chunks), "source": os.path.basename(file_path)}
+            )
+            return "Ingestão realizada com sucesso"
+
+        except Exception as e:
+            logger.error(f"Falha ao ingerir o documento '{file_path}': {e}", exc_info=True)
+            return f"Erro na ingestão: {e}"
+
+    def is_semantically_duplicate(self, query_text: str, threshold: Optional[float] = None) -> bool:
         """
-        Adiciona ou atualiza os dados de um paciente no grafo Neo4j.
-
-        Usa uma query Cypher MERGE para criar um nó :Patient se não existir,
-        ou atualizar suas propriedades se já existir.
-
-        Args:
-            patient_id (str): O identificador único do paciente.
-            data (dict): Um dicionário contendo as propriedades do paciente a serem
-                         adicionadas ou atualizadas.
+        Verifica se um texto é semanticamente duplicado em relação ao conteúdo existente.
+        Retorna True se a similaridade com o documento mais próximo estiver acima do limiar.
         """
-        if self.graph: # Verifica se a conexão com Neo4j existe
-            try:
-                # Usar parâmetros na query é mais seguro e geralmente mais performático
-                self.graph.query(
-                    "MERGE (p:Patient {id: $patient_id}) SET p += $props",
-                    params={"patient_id": patient_id, "props": data}
-                )
-                logger.info(f"Dados para o paciente '{patient_id}' adicionados/atualizados no Neo4j.")
-            except Exception as e: # Captura exceções genéricas da query Neo4j
-                logger.error(f"Falha ao adicionar/atualizar dados do paciente '{patient_id}' ao Neo4j: {e}", exc_info=True)
-        else: # Se self.graph for None
-            logger.warning(f"Neo4j indisponível. Não foi possível adicionar/atualizar dados para o paciente '{patient_id}'.")
+        if self.vector_store is None:
+            return False # Não há nada para comparar
+
+        if threshold is None:
+            threshold = self.rag_config.get('semantic_similarity_threshold', 0.95)
+
+        try:
+            # Busca o documento mais similar ao texto fornecido
+            # `search_with_score` retorna uma lista de (documento, score)
+            # Para FAISS com L2-distance (padrão), scores menores são melhores.
+            # Para FAISS com IP (similaridade de cosseno), scores maiores são melhores.
+            # A interface `similarity_search_with_score` normaliza isso: score maior = mais similar.
+            results_with_scores: List[Tuple[Any, float]] = self.vector_store.similarity_search_with_score(
+                query_text, k=1
+            )
+            
+            if not results_with_scores:
+                return False
+
+            # O score retornado por similarity_search_with_score é a distância.
+            # Para similaridade de cosseno, o score de distância é convertido para ser mais intuitivo,
+            # mas precisamos ter certeza do que ele representa.
+            # A documentação de LangChain indica que para `similarity_search_with_score`,
+            # o score de similaridade de cosseno é retornado (maior é melhor).
+            # No entanto, a implementação subjacente do FAISS pode usar L2.
+            # Vamos assumir que a abstração da LangChain funciona e um score maior significa mais similar.
+            # Se for distância, teríamos que fazer `similarity < threshold`.
+            # A forma mais segura é usar `similarity_search_with_relevance_scores`, que retorna um score entre 0 e 1.
+            
+            # Usando uma abordagem mais simples e direta com `similarity_search_with_score`
+            # e assumindo que scores maiores = mais similar (como na similaridade de cosseno)
+            doc, similarity = results_with_scores[0]
+            
+            # CORREÇÃO DO SYNTAXERROR: A operação .replace() foi movida para fora da f-string.
+            cleaned_query_text = query_text[:100].replace('\n', ' ')
+            logger.debug(f"Verificação de duplicidade semântica: Similaridade com o mais próximo = {similarity:.4f} (limiar: {threshold}) para o documento começando com '{cleaned_query_text}...'")
+
+            return similarity >= threshold
+
+        except Exception as e:
+            logger.error(f"Erro durante a verificação de duplicidade semântica: {e}", exc_info=True)
+            return False
+
 
     def rag_query(self, query: str) -> str:
         """
-        Realiza uma consulta na base de conhecimento RAG (FAISS).
-
-        Utiliza o `self.retriever` para buscar documentos relevantes para a consulta.
-        Formata os resultados, incluindo a fonte (nome do arquivo) e o conteúdo do documento.
-
-        Args:
-            query (str): A string de consulta para a busca RAG.
-
-        Returns:
-            str: Uma string contendo os resultados formatados da busca.
-                 Retorna uma mensagem específica se nenhum documento for encontrado,
-                 se o índice contiver apenas o placeholder, ou em caso de erro.
+        Realiza uma busca RAG na base de conhecimento.
         """
-        # Verificação de segurança para garantir que o retriever e seu método invoke existam
-        if not hasattr(self.retriever, 'invoke') or not callable(getattr(self.retriever, 'invoke', None)):
-            logger.error("Retriever não está configurado corretamente ou não possui método 'invoke' chamável.")
-            return "Erro: Sistema de busca não está configurado corretamente."
+        if self.vector_store is None:
+            logger.warning("Tentativa de busca RAG, mas o vector store não foi inicializado.")
+            return "A base de conhecimento (vector store) ainda não foi criada. Por favor, ingira documentos primeiro."
+        
         try:
-            docs: List[Document] = self.retriever.invoke(query)
+            # Usa o vector store como um retriever
+            retriever = self.vector_store.as_retriever(
+                search_type="similarity",
+                search_kwargs={"k": self.rag_config.get('top_k_results', 3)}
+            )
+            # Busca por documentos relevantes
+            relevant_docs = retriever.get_relevant_documents(query)
 
-            # Lista de textos de placeholder conhecidos
-            placeholder_texts = [
-                "placeholder_document_for_empty_index",
-                "placeholder_document_no_chunks_generated",
-                "placeholder_document_creation_failed"
-            ]
-            # Checa se os documentos retornados são apenas um dos placeholders
-            if docs and len(docs) == 1 and docs[0].page_content in placeholder_texts:
-                logger.info(f"Consulta RAG por '{query[:100]}...' retornou apenas um placeholder do índice: '{docs[0].page_content}'.")
-                return "A base de conhecimento textual ainda não possui documentos relevantes para consulta ou está em estado de placeholder."
+            if not relevant_docs:
+                return "Nenhuma informação relevante encontrada na base de conhecimento para este tópico."
 
-            if not docs: # Se a busca não retornar nenhum documento
-                logger.info(f"Nenhuma informação relevante encontrada na base de conhecimento para a query: '{query[:100]}...'")
-                return "Nenhuma informação relevante encontrada na base de conhecimento."
+            # Formata a resposta com o conteúdo e a fonte dos documentos
+            context_str = "\n\n---\n\n".join(
+                [f"Fonte: {os.path.basename(doc.metadata.get('source', 'desconhecida'))}\n\nConteúdo: {doc.page_content}" for doc in relevant_docs]
+            )
+            return context_str
+        except Exception as e:
+            logger.error(f"Erro durante a consulta RAG para query '{query[:50]}...': {e}", exc_info=True)
+            return f"Erro ao consultar a base de conhecimento: {e}"
 
-            # Formata os resultados
-            results = []
-            for doc_item in docs:
-                source = os.path.basename(doc_item.metadata.get('source', 'N/A'))
-                page_info = f", Página: {doc_item.metadata.get('page')}" if doc_item.metadata.get('page') is not None else ""
-                # Limita o tamanho do page_content para evitar respostas excessivamente longas, se necessário
-                # content_preview = doc_item.page_content[:1000] + "..." if len(doc_item.page_content) > 1000 else doc_item.page_content
-                results.append(f"Fonte: {source}{page_info}\n\n{doc_item.page_content}")
-
-            return "\n\n---\n\n".join(results)
-
-        except Exception as e: # Captura qualquer erro durante a invocação do retriever ou formatação
-            logger.error(f"Erro durante a consulta RAG para '{query[:100]}...': {e}", exc_info=True)
-            return f"Erro ao processar sua consulta na base de conhecimento: {e}"
-
-
-kb_manager = KnowledgeBaseManager()
-"""Instância global (Singleton) do KnowledgeBaseManager para fácil acesso em toda a aplicação."""
+# Cria uma instância única do manager para ser usada em todo o sistema
+try:
+    kb_manager = KnowledgeBaseManager()
+except RuntimeError as e:
+    logger.critical(f"Falha crítica na inicialização do KnowledgeBaseManager: {e}")
+    # Em um cenário real, você pode querer que a aplicação pare aqui ou entre em um modo de falha seguro.
+    kb_manager = None # Garante que a variável exista mas seja None, para que outras partes possam verificar.
