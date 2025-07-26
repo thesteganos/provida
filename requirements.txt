@@ -1,0 +1,13 @@
+google-generativeai
+langgraph
+google-cloud-aiplatform
+python-dotenv
+pyyaml
+neo4j
+minio
+chromadb
+docker
+requests
+beautifulsoup4
+pypdf2
+rich # Para uma CLI mais bonita
