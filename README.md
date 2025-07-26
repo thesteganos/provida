@@ -1,71 +1,81 @@
-# Projeto Pró-Vida: Assistente de Pesquisa para Cirurgia Bariátrica
+# **Pró-Vida: Assistente de Pesquisa Autônomo**
 
-Este repositório contém o código e a documentação para o **Projeto Pró-Vida**, um ecossistema de IA projetado para ser o assistente de pesquisa definitivo para um cirurgião bariátrico. O desenvolvimento é guiado por princípios de **Engenharia de Contexto** para garantir que os agentes de IA possam implementar funcionalidades de forma autônoma e eficaz.
+### **Sobre o Projeto**
 
-## 📌 Visão Geral do Projeto
+O "Pró-Vida" é um ecossistema de IA e um assistente de pesquisa autônomo projetado para cirurgiões bariátricos. Ele utiliza uma arquitetura de múltiplos agentes, orquestrada pelo LangGraph e potencializada pela família de modelos Gemini 2.5, para realizar pesquisas aprofundadas, analisar e classificar evidências científicas, e manter uma base de conhecimento que evolui continuamente.
 
-O Pró-Vida utiliza uma arquitetura de LLMs flexível, centrada na família de modelos Gemini, para oferecer dois modos principais de operação: "Consulta Rápida" (RAG) e "Pesquisa Profunda". A visão completa, arquitetura e requisitos estão detalhados em `provida.md`.
+Para uma visão completa do escopo do projeto, consulte o arquivo [PROJETO_PRO-VIDA_ESCOPO_FINAL.md](PROJETO_PRO-VIDA_ESCOPO_FINAL.md).
 
-## 🤖 A Abordagem de Engenharia de Contexto
+### **Features**
 
-Este projeto não é apenas sobre código, mas sobre como instruir agentes de IA para escrever esse código. Utilizamos uma metodologia estruturada:
+* **Modos de Operação Duplos:** "Consulta Rápida" (RAG) para respostas imediatas e "Pesquisa Profunda" para investigações exaustivas.
+* **Arquitetura Multiagente:** Agentes especializados para busca, análise, tradução, resumo e curadoria de dados.
+* **Engenharia de Contexto:** Prompts robustos e detalhados para garantir respostas precisas e estruturadas.
+* **Memória Agentica Persistente:** Cada agente aprende e evolui com o tempo, armazenando suas experiências em um banco de dados de grafo Neo4j dedicado.
+* **Arquitetura de Dados Quádrupla:** Utiliza MinIO S3, Vector DB, Neo4j para conhecimento e Neo4j para memória.
+* **Autonomia Configurável:** Tarefas de atualização e curadoria de conhecimento podem ser agendadas e personalizadas pelo usuário.
+* **Configuração Flexível de LLMs:** Permite a troca de modelos e provedores de IA através de um arquivo de configuração central.
 
-1.  **Visão do Projeto (`provida.md`)**: Um documento central que define o "porquê" e o "o quê" do projeto.
-2.  **Modelo de PRP (`PRPs/templates/prp_base.md`)**: Um modelo detalhado para criar "Planos de Pesquisa de Projeto" (PRPs). Este modelo força a inclusão de todo o contexto necessário para o sucesso do agente de IA.
-3.  **PRPs Detalhados (`INITIAL.md`)**: Cada nova funcionalidade começa com um PRP detalhado, que serve como um blueprint completo para o agente de IA. `INITIAL.md` é o nosso primeiro exemplo, focando na criação do CLI.
+### **Arquitetura Tecnológica**
 
-Este processo garante que o desenvolvimento seja consistente, previsível e alinhado com os objetivos do projeto.
+* **Backend/Lógica de IA:** Python 3.10+
+* **Framework de Agentes:** Google ADK, LangGraph
+* **LLMs:** Família Google Gemini 2.5 (configurável)
+* **Bancos de Dados:** Neo4j, ChromaDB (ou similar), MinIO S3
+* **Interface:** Aplicação de Linha de Comando (CLI)
 
-## 🚀 Como Começar
+Para mais detalhes sobre a arquitetura, consulte o [Documento de Arquitetura](Documentos%20de%20Suporte%20.md#architecture.md).
 
-### Pré-requisitos
-- Python 3.10+
-- Acesso à API do Google Gemini
+### **Primeiros Passos**
 
-### Instalação
-1.  **Clone o repositório:**
-    ```bash
-    git clone <URL do seu repositório>
-    cd <nome do repositório>
-    ```
+#### **Pré-requisitos**
 
-2.  **Crie e configure o ambiente:**
-    - Crie um arquivo `.env` a partir do `.env.example` (se houver um) ou crie um novo.
-    - Adicione sua chave da API do Google ao arquivo `.env`:
-      ```
-      GOOGLE_API_KEY="sua_chave_aqui"
-      ```
+* Python 3.10 ou superior
+* Docker e Docker Compose
+* Conta na Google AI Platform com acesso aos modelos Gemini
 
-3.  **Instale as dependências:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+#### **Instalação**
 
-##  workflow de Desenvolvimento
+1. **Clone o repositório:**
+   ```bash
+   git clone <URL_DO_REPOSITORIO>
+   cd PROJETO_PRO-VIDA
+   ```
 
-O desenvolvimento no Pró-Vida é feito através da execução de PRPs por um agente de IA (como o `gemini-cli`).
+2. **Crie e ative um ambiente virtual:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # No Windows: venv\Scripts\activate
+   ```
 
-1.  **Revisar o PRP**: Antes da execução, revise o PRP para a funcionalidade desejada (e.g., `INITIAL.md`).
-2.  **Executar o PRP**: Use uma ferramenta como o Gemini CLI para executar o plano. O agente de IA irá ler o PRP e começar a implementação.
-    ```bash
-    gemini-cli execute-prp INITIAL.md
-    ```
-3.  **Validar**: O agente irá rodar os loops de validação (linting, testes) definidos no PRP para garantir que o código está correto.
+3. **Instale as dependências:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 📂 Estrutura do Projeto
+4. **Configure as variáveis de ambiente:**
+   - Copie o arquivo de exemplo: `cp .env.example .env`
+   - Edite o arquivo `.env` e adicione suas chaves de API e credenciais.
 
-```
-.
-├── .gemini/              # Configurações e comandos para o Gemini CLI
-├── PRPs/                 # Planos de Pesquisa de Projeto
-│   ├── templates/
-│   │   └── prp_base.md   # O modelo mestre para PRPs
-│   └── ...               # Outros PRPs para funcionalidades futuras
-├── src/                  # Código-fonte do projeto Pró-Vida
-├── tests/                # Testes de unidade e integração
-├── .env                  # Arquivo para suas chaves de API (não versionado)
-├── GEMINI.md             # Regras globais para o assistente de IA
-├── INITIAL.md            # O primeiro e mais detalhado PRP para iniciar o projeto
-├── provida.md            # O documento de visão e arquitetura do projeto
-└── README.md             # Este arquivo
-```
+5. **Inicie os serviços de backend (Neo4j, MinIO):**
+   ```bash
+   docker-compose up -d
+   ```
+
+### **Uso**
+
+A aplicação é controlada via linha de comando.
+
+* **Para uma Consulta Rápida:**
+  ```bash
+  python src/main.py --mode fast-query --query "Quais as complicações da gastrectomia vertical?"
+  ```
+
+* **Para iniciar uma Pesquisa Profunda:**
+  ```bash
+  python src/main.py --mode deep-research --topic "Impacto da apneia do sono nos resultados da cirurgia bariátrica"
+  ```
+
+### **Engenharia de Prompts**
+
+A qualidade das respostas do sistema depende diretamente da qualidade dos prompts. Para mais detalhes sobre a engenharia de prompts utilizada, consulte o [Documento de Prompts](Documentos%20de%20Suporte%20.md#prompts.md).
