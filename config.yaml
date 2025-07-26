@@ -29,11 +29,13 @@ services:
     uri: "bolt://localhost:7687"
     user: "neo4j"
     password: "${NEO4J_PASSWORD}"
+    database: "provida-knowledge"
   
   neo4j_memory_agents:
     uri: "bolt://localhost:7687"
     user: "neo4j"
     password: "${NEO4J_PASSWORD}"
+    database: "provida-memory"
 
   minio_s3:
     endpoint: "localhost:9000"

@@ -1,20 +1,47 @@
 import argparse
-import yaml
+import asyncio
 from rich.console import Console
+from dotenv import load_dotenv
 
-# (Aqui viriam os imports dos módulos de agentes, orquestrador, etc.)
-# from pro_vida.orchestrator import DeepResearchOrchestrator
-# from pro_vida.query_handler import FastQueryHandler
+# Carrega variáveis de ambiente de .env.example ou .env
+load_dotenv(dotenv_path='.env.example')
+load_dotenv()
 
-def load_config():
-    """Carrega as configurações do arquivo config.yaml."""
-    with open('config.yaml', 'r') as f:
-        return yaml.safe_load(f)
+# Imports do projeto devem vir depois do load_dotenv
+from pro_vida.agents.research_agent import ResearchAgent
+from pro_vida.config.settings import settings
+
+def run_fast_query(query: str, console: Console):
+    """Executa o modo de consulta rápida."""
+    console.print(f"Executando Consulta Rápida para: '{query}'")
+
+    # Esta é uma implementação provisória.
+    # No futuro, isso usará um handler RAG.
+    agent = ResearchAgent()
+
+    # Como o search_web é async, precisamos de um loop de eventos
+    results = asyncio.run(agent.search_web(query))
+
+    console.print("\n[bold]Resultados da Pesquisa:[/bold]")
+    console.print(results)
+
+from pro_vida.orchestrator import DeepResearchOrchestrator
+
+def run_deep_research(topic: str, console: Console):
+    """Executa o modo de pesquisa profunda."""
+    console.print(f"Iniciando Pesquisa Profunda sobre: '{topic}'")
+
+    # Instancia e executa o orquestrador
+    orchestrator = DeepResearchOrchestrator()
+    final_state = orchestrator.run(topic)
+
+    console.print("\n[bold]Resultados da Orquestração:[/bold]")
+    console.print(final_state.get('research_results', 'Nenhum resultado encontrado.'))
+
 
 def main():
     """Função principal que gerencia a CLI."""
     console = Console()
-    config = load_config()
 
     parser = argparse.ArgumentParser(description="Pró-Vida: Assistente de Pesquisa Autônomo.")
     parser.add_argument('--mode', required=True, choices=['fast-query', 'deep-research'], help="Modo de operação.")
@@ -24,26 +51,21 @@ def main():
     args = parser.parse_args()
 
     console.print("[bold green]Iniciando o sistema Pró-Vida...[/bold green]")
+    console.print(f"LLM Provider: [cyan]{settings.get('llm_provider')}[/cyan]")
 
     if args.mode == 'fast-query':
         if not args.query:
             console.print("[bold red]Erro: O modo 'fast-query' requer o argumento --query.[/bold red]")
             return
-        # handler = FastQueryHandler(config)
-        # response = handler.execute(args.query)
-        # console.print(response)
-        console.print(f"Executando Consulta Rápida para: '{args.query}'")
-
+        run_fast_query(args.query, console)
 
     elif args.mode == 'deep-research':
         if not args.topic:
             console.print("[bold red]Erro: O modo 'deep-research' requer o argumento --topic.[/bold red]")
             return
-        # orchestrator = DeepResearchOrchestrator(config)
-        # orchestrator.run(args.topic)
-        console.print(f"Iniciando Pesquisa Profunda sobre: '{args.topic}'")
+        run_deep_research(args.topic, console)
 
-    console.print("[bold green]Operação concluída.[/bold green]")
+    console.print("\n[bold green]Operação concluída.[/bold green]")
 
 if __name__ == "__main__":
     main()
