@@ -13,7 +13,7 @@ Build a Pydantic AI multi-agent system where a primary Research Agent uses Brave
 ---
 
 ## Goal
-Create a production-ready multi-agent system where users can research topics via CLI, and the Research Agent can delegate email drafting tasks to an Email Draft Agent. The system should support multiple LLM providers and handle API authentication securely.
+Create a production-ready multi-agent system where users can research topics via CLI or via Framework, and Research Agent return knowlead to summarisze agente. The system should support multiple LLM providers and handle API authentication securely.
 
 ## Why
 - **Business value**: Automates research and email drafting workflows
@@ -23,8 +23,7 @@ Create a production-ready multi-agent system where users can research topics via
 ## What
 A CLI-based application where:
 - Users input research queries
-- Research Agent searches using Brave API
-- Research Agent can invoke Email Draft Agent to create Gmail drafts
+- Research Agent searches using Brave API, PyMed library api or LLM search function (if present in current LLM) 
 - Results stream back to the user in real-time
 
 ### Success Criteria
