@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 class TestDeepResearchOrchestrator(unittest.TestCase):
 
     @patch.dict(os.environ, {"GOOGLE_API_KEY": "test_key"})
-    @patch('src.pro_vida.orchestrator.ResearchAgent')
+    @patch('pro_vida.orchestrator.ResearchAgent')
     def test_run_isolates_state(self, MockResearchAgent):
         from src.pro_vida.orchestrator import DeepResearchOrchestrator
         # Crie uma instância mock do ResearchAgent
