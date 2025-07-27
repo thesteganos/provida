@@ -1,29 +1,92 @@
 version: '3.8'
 
 services:
-  neo4j:
-    image: neo4j:5
-    container_name: pro_vida_neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
+  # Serviço da Aplicação Pró-Vida
+  provida-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: provida-app
+    env_file:
+      - .env
+    environment:
+      # Endereços dos serviços para a aplicação se conectar dentro da rede Docker
+      - NEO4J_URI=bolt://neo4j:7687
+      - MINIO_ENDPOINT=minio:9000
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
     volumes:
-      - ./neo4j/data:/data
+      # Monta o código-fonte para desenvolvimento em tempo real
+      - ./src:/app/src
+    depends_on:
+      - neo4j
+      - minio
+      - chroma
+    networks:
+      - provida-net
+
+  # Serviço do Banco de Dados de Grafo Neo4j
+  neo4j:
+    image: neo4j:5.18
+    container_name: provida-neo4j
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
-      - NEO4J_PLUGINS=["apoc"]
-    restart: unless-stopped
+      - NEO4J_PLUGINS=["apoc"] # Adiciona o plugin APOC, muito útil
+    networks:
+      - provida-net
 
+  # Serviço de Armazenamento de Objetos MinIO
   minio:
     image: minio/minio:latest
-    container_name: pro_vida_minio
+    container_name: provida-minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000" # API
+      - "9001:9001" # Console Web
     volumes:
-      - ./minio/data:/data
+      - minio_data:/data
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     command: server /data --console-address ":9001"
-    restart: unless-stopped
+    networks:
+      - provida-net
+
+  # Serviço para configurar o MinIO (criar bucket)
+  minio-setup:
+    image: minio/mc
+    container_name: provida-minio-setup
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    volumes:
+      - ./setup.sh:/setup.sh
+    entrypoint: ["/bin/sh", "-c", "chmod +x /setup.sh && /setup.sh"]
+    networks:
+      - provida-net
+
+  # Serviço do Banco de Dados Vetorial ChromaDB
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: provida-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - provida-net
+
+# Define os volumes nomeados para persistência de dados
+volumes:
+  neo4j_data:
+  minio_data:
+  chroma_data:
+
+# Define a rede customizada para os serviços
+networks:
+  provida-net:

@@ -1,12 +1,17 @@
+import json
+import logging
+
 from app.core.llm_provider import llm_provider
 from app.config.settings import settings
 from typing import Dict, Any, List
 
+logger = logging.getLogger(__name__)
+
 class SynthesisAgent:
     def __init__(self):
-        self.model = llm_provider.get_model(settings["models"]["synthesis_agent"])
+        self.model = llm_provider.get_model(settings.models.synthesis_agent)
 
-    def generate_summary_with_citations(self, text: str, research_question: str, sources: List[Dict[str, str]]) -> Dict[str, Any]:
+    async def generate_summary_with_citations(self, text: str, research_question: str, sources: List[Dict[str, str]]) -> Dict[str, Any]:
         """Generates a summary with sentence-level citations.
 
         Args:
@@ -51,7 +56,6 @@ class SynthesisAgent:
         """
 
         try:
-            response = self.model.generate_content(prompt)
             import json
             summary_data = json.loads(response.text)
             return summary_data

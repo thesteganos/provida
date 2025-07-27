@@ -1,23 +1,24 @@
-from rich.console import Console
 from app.orchestrator_graph import build_research_graph, ResearchState
+from typing import Dict, Any
 
-def run_deep_research(topic: str):
-    """Executa o modo de pesquisa profunda."""
-    console = Console()
-    console.print(f"Iniciando Pesquisa Profunda sobre: '{topic}'")
+def run_deep_research(topic: str) -> Dict[str, Any]:
+    """
+    Executa o modo de pesquisa profunda e retorna o estado final.
 
+    Args:
+        topic (str): O tópico para a pesquisa.
+
+    Returns:
+        Dict[str, Any]: O estado final do grafo de pesquisa.
+    """
     graph = build_research_graph()
     initial_state = ResearchState(
         topic=topic,
         research_plan={},
         collected_data=[],
         analyzed_data=[],
-        final_report={}
+        final_report={},
+        verification_report={},
     )
-    
-    final_state = graph.invoke(initial_state)
 
-    console.print("\n[bold]Pesquisa Profunda Concluída:[/bold]")
-    console.print(final_state)
-
-
+    return graph.invoke(initial_state)

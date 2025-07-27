@@ -1,11 +1,12 @@
-import os
 from Bio import Entrez
 from typing import List, Dict, Any
 
+from app.config.settings import settings
+
 class PubMedSearch:
     def __init__(self):
-        self.api_key = os.getenv("ENTREZ_API_KEY")
-        self.email = os.getenv("ENTREZ_EMAIL")
+        self.api_key = settings.entrez_api_key
+        self.email = settings.entrez_email
         if not self.email:
             raise ValueError("ENTREZ_EMAIL not found in environment variables. It is required by Entrez.")
         Entrez.email = self.email
@@ -76,4 +77,3 @@ class PubMedSearch:
         except Exception as e:
             print(f"Error during PubMed API call: {e}")
             return []
-
