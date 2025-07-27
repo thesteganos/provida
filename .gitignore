@@ -1,5 +1,35 @@
+# Ambientes Virtuais
 venv
 venv_linux
-__pycache__
-.ruff_cache
-.pytest_cache
+.venv
+env
+
+# Arquivos de Cache e Compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+
+# Arquivos de Configuração Local
+.env
+.env.*
+!/.env.example
+
+# Arquivos de IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de Sistema Operacional
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Bancos de Dados Locais
+*.db
+*.sqlite3

@@ -26,23 +26,23 @@ research_parameters:
 # 4. Configuração dos Serviços de Backend
 services:
   neo4j_knowledge:
-    uri: "bolt://localhost:7687"
+    uri: "${NEO4J_URI:-bolt://localhost:7687}"
     user: "neo4j"
     password: "${NEO4J_PASSWORD}"
     database: "provida-knowledge"
   
   neo4j_memory_agents:
-    uri: "bolt://localhost:7687"
+    uri: "${NEO4J_URI:-bolt://localhost:7687}"
     user: "neo4j"
     password: "${NEO4J_PASSWORD}"
     database: "provida-memory"
 
   minio_s3:
-    endpoint: "localhost:9000"
+    endpoint: "${MINIO_ENDPOINT:-localhost:9000}"
     access_key: "${MINIO_ACCESS_KEY}"
     secret_key: "${MINIO_SECRET_KEY}"
     bucket_name: "pro-vida-articles"
 
   vector_db:
     provider: "chromadb"
-    path: "./chroma_db"
+    path: "${VECTOR_DB_PATH:-./chroma_db}"
