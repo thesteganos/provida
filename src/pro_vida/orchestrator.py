@@ -10,12 +10,11 @@ logger = logging.getLogger(__name__)
 # Define o estado do grafo
 class AgentState(TypedDict):
     topic: str
-    research_results: Annotated[List[dict], operator.add]
+    research_results: List[dict]
 
 class DeepResearchOrchestrator:
     def __init__(self):
         self.research_agent = ResearchAgent()
-        self.workflow = self._build_graph()
 
     def _build_graph(self):
         """Constrói o grafo de orquestração com LangGraph."""
@@ -46,10 +45,13 @@ class DeepResearchOrchestrator:
     def run(self, topic: str):
         """Inicia a execução do fluxo de pesquisa profunda."""
         logger.info(f"Iniciando orquestrador para o tópico: {topic}")
-        initial_state = {"topic": topic, "research_results": []}
+
+        workflow = self._build_graph()
+
+        initial_state = {"topic": topic}
 
         # O LangGraph gerencia a execução dos nós.
-        final_state = self.workflow.invoke(initial_state)
+        final_state = workflow.invoke(initial_state)
 
         logger.info("Orquestração concluída.")
-        return final_state
+        return final_state.get("research_results", [])
