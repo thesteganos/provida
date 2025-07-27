@@ -1,5 +1,6 @@
 import unittest
 import os
+import asyncio
 from unittest.mock import patch, MagicMock
 
 class TestDeepResearchOrchestrator(unittest.TestCase):
@@ -23,12 +24,15 @@ class TestDeepResearchOrchestrator(unittest.TestCase):
 
         # Crie o orquestrador
         orchestrator = DeepResearchOrchestrator()
+        loop = asyncio.new_event_loop()
 
         # Execute o orquestrador com o primeiro tópico
-        results1 = orchestrator.run("topic1")
+        results1 = orchestrator.run("topic1", loop)
 
         # Execute o orquestrador com o segundo tópico
-        results2 = orchestrator.run("topic2")
+        results2 = orchestrator.run("topic2", loop)
+
+        loop.close()
 
         # Verifique se os resultados são os esperados e não são combinados
         self.assertEqual(results1, [{"result": "topic1_result"}])

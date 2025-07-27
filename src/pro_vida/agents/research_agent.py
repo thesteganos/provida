@@ -75,3 +75,29 @@ class ResearchAgent:
         except Exception as e:
             logger.error(f"A pesquisa na web falhou: {e}")
             return [{"error": f"A pesquisa falhou: {str(e)}"}]
+
+    def search_web_sync(
+        self,
+        query: str,
+        max_results: int = 10,
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None
+    ) -> List[Dict[str, Any]]:
+        """Synchronous wrapper for ``search_web``.
+
+        Parameters
+        ----------
+        query: str
+            Search query.
+        max_results: int, optional
+            Maximum number of results to return.
+        loop: asyncio.AbstractEventLoop, optional
+            Event loop used to execute the async search.
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            Search results.
+        """
+        loop = loop or asyncio.get_event_loop()
+        return loop.run_until_complete(self.search_web(query, max_results))
