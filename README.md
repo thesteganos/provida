@@ -53,6 +53,21 @@ npm install
 npm start
 ```
 
+## Docker
+
+### Building the Docker Image
+To build the Docker image for the application, use the following command:
+```bash
+docker build -t provida .
+```
+
+### Running the Docker Container
+To run the Docker container, use the following command:
+```bash
+docker run -d -p 8000:8000 --name provida provida
+```
+
+
 ## Installation
 
 ### Prerequisites
@@ -60,6 +75,7 @@ npm start
 - pip (Python package installer)
 - Node.js 14 or higher
 - npm (Node.js package manager)
+
 
 ### Steps
 1. Clone the repository:
