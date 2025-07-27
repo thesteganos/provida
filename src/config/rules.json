@@ -1,0 +1,16 @@
+{
+  "rules": [
+    {
+      "id": "rule1",
+      "description": "If the user has not interacted with the application in the last 24 hours, send a reminder email.",
+      "condition": "user.lastInteraction < now - 24 hours",
+      "action": "sendReminderEmail(user.email)"
+    },
+    {
+      "id": "rule2",
+      "description": "If the application detects an error, log it and notify the support team.",
+      "condition": "application.errorDetected",
+      "action": "logError(application.error) && notifySupportTeam(application.error)"
+    }
+  ]
+}
