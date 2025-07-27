@@ -84,3 +84,4 @@ A aplicação é controlada via linha de comando.
 ### **Engenharia de Prompts**
 
 A qualidade das respostas do sistema depende diretamente da qualidade dos prompts. Para mais detalhes sobre a engenharia de prompts utilizada, consulte o [Documento de Prompts](Documentos%20de%20Suporte%20.md#prompts.md).
+

@@ -11,3 +11,4 @@ requests
 beautifulsoup4
 pypdf2
 rich # Para uma CLI mais bonita
+pydantic

@@ -1,6 +1,6 @@
 import os
 import google.generativeai as genai
-from pro_vida.config.settings import settings
+from ..config.settings import settings
 
 # Configura a API key do Google a partir de variáveis de ambiente
 # A aplicação principal deverá garantir que python-dotenv seja carregado
