@@ -1,6 +1,6 @@
 import logging
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List
+import asyncio
+from typing import TypedDict, Annotated, List, Optional
 import operator
 
 from pro_vida.agents.research_agent import ResearchAgent
@@ -15,6 +15,7 @@ class AgentState(TypedDict):
 class DeepResearchOrchestrator:
     def __init__(self):
         self.research_agent = ResearchAgent()
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
 
     def _build_graph(self):
         """Constrói o grafo de orquestração com LangGraph."""
@@ -35,17 +36,23 @@ class DeepResearchOrchestrator:
         logger.info("Orquestrador: Executando o nó de pesquisa.")
         topic = state['topic']
 
-        # Esta é uma chamada síncrona para a função async.
-        # Em um app real, o próprio `invoke` do LangGraph lidaria com isso.
-        import asyncio
-        results = asyncio.run(self.research_agent.search_web(topic))
+        if self.loop is None:
+            raise RuntimeError("Event loop not configured")
+        results = self.loop.run_until_complete(
+            self.research_agent.search_web(topic)
+        )
 
         return {"research_results": results}
 
-    def run(self, topic: str):
+    def run(
+        self,
+        topic: str,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ) -> List[dict]:
         """Inicia a execução do fluxo de pesquisa profunda."""
         logger.info(f"Iniciando orquestrador para o tópico: {topic}")
 
+        self.loop = loop or asyncio.get_event_loop()
         workflow = self._build_graph()
 
         initial_state = {"topic": topic}

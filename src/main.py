@@ -33,7 +33,11 @@ def run_deep_research(topic: str, console: Console):
 
     # Instancia e executa o orquestrador
     orchestrator = DeepResearchOrchestrator()
-    final_state = orchestrator.run(topic)
+    loop = asyncio.new_event_loop()
+    try:
+        final_state = orchestrator.run(topic, loop)
+    finally:
+        loop.close()
 
     console.print("\n[bold]Resultados da Orquestração:[/bold]")
     console.print(final_state.get('research_results', 'Nenhum resultado encontrado.'))
