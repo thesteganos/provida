@@ -5,7 +5,7 @@ from pathlib import Path
 
 def load_config():
     """
-    Carrega as configurações do arquivo config.yaml na raiz do projeto.
+    Load configurations from config.yaml.
     """
     config_path = Path(__file__).parent.parent.parent.parent / 'config.yaml'
     with open(config_path, 'r') as f:
@@ -27,13 +27,3 @@ def load_config():
         return value
 
     return expand(config)
-
-# Carrega a configuração globalmente para que outros módulos possam importá-la
-settings = load_config()
-
-# Expose deep_search_limit for easy access
-deep_search_limit = settings['search']['deep_search_limit']
-timeout = settings['search']['timeout']
-api_key = settings['search']['api_key']
-endpoint = settings['search']['endpoint']
-rate_limit = settings['search']['rate_limit']

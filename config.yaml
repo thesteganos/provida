@@ -1,0 +1,66 @@
+# Application Configuration
+app:
+  name: Provida
+  version: 1.0.0
+  debug: false
+
+# Database Configuration
+database:
+  neo4j:
+    knowledge:
+      uri: bolt://neo4j:7687
+      user: neo4j
+      password: ${NEO4J_PASSWORD}
+      database: provida-knowledge
+    memory_agents:
+      uri: bolt://neo4j:7687
+      user: neo4j
+      password: ${NEO4J_PASSWORD}
+      database: provida-memory
+
+# MinIO Configuration
+minio:
+  access_key: ${MINIO_ACCESS_KEY}
+  secret_key: ${MINIO_SECRET_KEY}
+  endpoint: http://minio:9000
+
+# Google API Configuration
+google:
+  api_key: ${GOOGLE_API_KEY}
+
+# Search Configuration
+search:
+  deep_search_limit: 100  # Default limit for deep search mode
+  timeout: 30  # Timeout in seconds for search requests
+  api_key: ${SEARCH_API_KEY}  # API key for search service
+  endpoint: ${SEARCH_ENDPOINT}  # Endpoint for search service
+  rate_limit: 10  # Number of requests per minute
+  
+  # Models Configuration
+  models:
+    llm:
+      enabled: true  # Enable or disable LLM
+      api_key: ${LLM_API_KEY}  # API key for LLM service
+      endpoint: ${LLM_ENDPOINT}  # Endpoint for LLM service
+      timeout: 30  # Timeout in seconds for LLM requests
+  
+  # Reporting Configuration
+  reporting:
+    enabled: true  # Enable or disable reporting
+    interval: 86400  # Interval in seconds between report generations (1 day)
+    formats:
+      - pdf
+      - csv
+    output_path: /path/to/reports  # Path where reports will be saved
+  
+  # Automation Configuration
+  automation:
+    enabled: true  # Enable or disable automation
+    interval: 3600  # Interval in seconds between automation runs
+    tasks:
+      - name: task1
+        description: "Description of task1"
+        enabled: true
+      - name: task2
+        description: "Description of task2"
+        enabled: false

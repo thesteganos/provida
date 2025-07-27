@@ -8,7 +8,7 @@ from .agents.research_agent import ResearchAgent
 
 logger = logging.getLogger(__name__)
 
-# Define o estado do grafo
+# Define the graph state
 class AgentState(TypedDict):
     topic: str
     research_results: List[dict]
@@ -58,7 +58,7 @@ class DeepResearchOrchestrator:
 
         initial_state = {"topic": topic}
 
-        # O LangGraph gerencia a execução dos nós.
+        # LangGraph manages the execution of the nodes.
         final_state = workflow.invoke(initial_state)
 
         logger.info("Orquestração concluída.")

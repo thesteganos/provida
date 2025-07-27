@@ -38,5 +38,32 @@ class TestDeepResearchOrchestrator(unittest.TestCase):
         self.assertEqual(results1, [{"result": "topic1_result"}])
         self.assertEqual(results2, [{"result": "topic2_result"}])
 
+    def test_build_graph(self):
+        from src.pro_vida.orchestrator import DeepResearchOrchestrator
+        orchestrator = DeepResearchOrchestrator()
+        nodes = ["node1", "node2", "node3"]
+        edges = [("node1", "node2"), ("node2", "node3")]
+        graph = orchestrator._build_graph(nodes, edges)
+        self.assertEqual(graph.nodes, set(nodes))
+        self.assertEqual(graph.edges, set(edges))
+
+    def test_run_research_agent(self, MockResearchAgent):
+        from src.pro_vida.orchestrator import DeepResearchOrchestrator
+        mock_agent_instance = MockResearchAgent.return_value
+        mock_agent_instance.run.return_value = {"result": "agent_result"}
+        orchestrator = DeepResearchOrchestrator()
+        state = {"topic": "test_topic"}
+        result = orchestrator.run_research_agent(state)
+        self.assertEqual(result, {"result": "agent_result"})
+
+    def test_run_research_agent_failure(self, MockResearchAgent):
+        from src.pro_vida.orchestrator import DeepResearchOrchestrator
+        mock_agent_instance = MockResearchAgent.return_value
+        mock_agent_instance.run.side_effect = Exception("Agent failure")
+        orchestrator = DeepResearchOrchestrator()
+        state = {"topic": "test_topic"}
+        with self.assertRaises(Exception):
+            orchestrator.run_research_agent(state)
+
 if __name__ == '__main__':
     unittest.main()

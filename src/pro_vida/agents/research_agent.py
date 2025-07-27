@@ -51,7 +51,7 @@ class ResearchAgent:
     async def search_web(
         self,
         query: str,
-        max_results: int = 10
+        max_results: int = settings.deep_search_limit
     ) -> List[Dict[str, Any]]:
         """
         Pesquisa na web usando a API Brave Search.

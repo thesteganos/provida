@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def search_web_tool(
     api_key: str,
     query: str,
-    count: int = 10,
+    count: int = settings.deep_search_limit,
     offset: int = 0,
     country: Optional[str] = None,
     lang: Optional[str] = None

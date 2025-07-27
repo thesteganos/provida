@@ -1,30 +1,29 @@
 from Bio import Entrez
 from typing import List, Dict, Any
 
-from app.config.settings import settings
+from src.app.config.settings import settings
 
 class PubMedSearch:
     def __init__(self):
         self.api_key = settings.entrez_api_key
-        self.email = settings.entrez_email
-        if not self.email:
-            raise ValueError("ENTREZ_EMAIL not found in environment variables. It is required by Entrez.")
-        Entrez.email = self.email
+        if not self.api_key:
+            raise ValueError("ENTREZ_API_KEY not found in environment variables. It is required by Entrez.")
+        Entrez.api_key = self.api_key
         if self.api_key:
             Entrez.api_key = self.api_key
 
-    def search(self, query: str, retmax: int = 10) -> List[Dict[str, Any]]:
+    def search(self, query: str, count: int = 10) -> List[Dict[str, Any]]:
         """Searches PubMed for articles.
 
         Args:
             query (str): The search query.
-            retmax (int): The maximum number of UIDs to retrieve.
+            count (int): The maximum number of UIDs to retrieve.
 
         Returns:
             List[Dict[str, Any]]: A list of dictionaries containing article details.
         """
         try:
-            handle = Entrez.esearch(db="pubmed", term=query, retmax=retmax)
+            handle = Entrez.esearch(db="pubmed", term=query, retmax=count)
             record = Entrez.read(handle)
             handle.close()
             id_list = record["IdList"]
