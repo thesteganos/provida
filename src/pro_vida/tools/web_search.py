@@ -10,7 +10,7 @@ import httpx
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from pro_vida.models.data_models import BraveSearchResult
+from ..models.data_models import BraveSearchResult
 
 logger = logging.getLogger(__name__)
 

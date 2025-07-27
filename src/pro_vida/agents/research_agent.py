@@ -3,13 +3,13 @@ Research Agent that uses Brave Search and can invoke Email Agent.
 """
 
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 
 # from pydantic_ai import Agent, RunContext # Removido temporariamente
 
-from pro_vida.core.llm_provider import get_model_for_agent
-from pro_vida.tools.web_search import search_web_tool
+from ..core.llm_provider import get_model_for_agent
+from ..tools.web_search import search_web_tool
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ Always strive to provide accurate, helpful, and actionable information.
 
 
 import os
-from pro_vida.config.settings import settings
 
 class ResearchAgent:
     def __init__(self):
