@@ -57,6 +57,11 @@ Para mais detalhes sobre a arquitetura, consulte o [Documento de Arquitetura](Do
    - Copie o arquivo de exemplo: `cp .env.example .env`
    - Edite o arquivo `.env` e adicione suas chaves de API e credenciais.
 
+   O arquivo `config.yaml` suporta variáveis no formato `${VAR}`. Ao carregar as
+   configurações, esses padrões são substituídos pelos valores das variáveis de
+   ambiente correspondentes. Por exemplo, defina `NEO4J_PASSWORD` no `.env` para
+   preencher `services.neo4j_knowledge.password`.
+
 5. **Inicie os serviços de backend (Neo4j, MinIO):**
    ```bash
    docker-compose up -d
