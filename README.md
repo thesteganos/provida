@@ -67,6 +67,7 @@ To run the Docker container, use the following command:
 docker run -d -p 8000:8000 --name provida provida
 ```
 
+
 ## Installation
 
 ### Prerequisites
@@ -74,7 +75,7 @@ docker run -d -p 8000:8000 --name provida provida
 - pip (Python package installer)
 - Node.js 14 or higher
 - npm (Node.js package manager)
-- Docker
+
 
 ### Steps
 1. Clone the repository:
