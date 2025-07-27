@@ -17,11 +17,49 @@ The application is structured around a set of agents that perform specific tasks
 - **Web Search:** A tool for searching the web for information.
 - **Knowledge Graph:** A tool for interacting with a knowledge graph.
 
+## Frontend
+The frontend is a React application that uses the Material-UI library for the user interface.
+
+### Technologies
+- React
+- Material-UI
+
+### Project Structure
+The frontend code is located in the `frontend` directory. The main components are located in the `src` directory.
+
+### Running the Application
+To run the frontend application, use the following commands:
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## Backend
+The backend is a Node.js application that uses the Express framework to create a REST API. The backend is responsible for handling the business logic of the application and for interacting with the database.
+
+### Technologies
+- Node.js
+- Express
+
+### Project Structure
+The backend code is located in the `backend` directory. The main components are located in the `src` directory.
+
+### Running the Application
+To run the backend application, use the following commands:
+```bash
+cd backend
+npm install
+npm start
+```
+
 ## Installation
 
 ### Prerequisites
 - Python 3.13 or higher
 - pip (Python package installer)
+- Node.js 14 or higher
+- npm (Node.js package manager)
 
 ### Steps
 1. Clone the repository:
