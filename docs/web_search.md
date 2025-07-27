@@ -18,6 +18,10 @@ Searches the web for the given query using the specified search type.
 
 - **Raises:**
   - `ValueError`: If an invalid search type is provided.
+  - `Exception`: If an error occurs during the search process.
+
+- **Notes:**
+  - The `search_type` parameter can be "general", "academic", or "auto". The "auto" option will attempt to determine the appropriate search type based on the query.
 
 ## Usage Examples
 
