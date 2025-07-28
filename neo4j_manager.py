@@ -6,14 +6,29 @@ from typing import Any, Dict, List
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
-from app.models.config_models import Neo4jSettings
+from app.config.settings import Neo4jDatabaseSettings as Neo4jSettings
 
 logger = logging.getLogger(__name__)
 
 
 @lru_cache
 def get_neo4j_driver(settings: Neo4jSettings) -> AsyncDriver:
-    """Return a cached ``AsyncDriver`` for the given settings."""
+    """
+    Retorna um driver assíncrono do Neo4j em cache para as configurações fornecidas.
+
+    Este driver é usado para interagir com o banco de dados Neo4j. A função utiliza
+    `lru_cache` para garantir que apenas uma instância do driver seja criada para
+    um dado conjunto de configurações, otimizando o uso de recursos.
+
+    Args:
+        settings (Neo4jSettings): Um objeto de configurações contendo URI, usuário e senha do Neo4j.
+
+    Returns:
+        AsyncDriver: Uma instância do driver assíncrono do Neo4j.
+
+    Raises:
+        Exception: Se houver uma falha ao criar o driver Neo4j.
+    """
     try:
         driver = AsyncGraphDatabase.driver(
             settings.uri, auth=(settings.user, settings.password)
@@ -30,23 +45,23 @@ def get_neo4j_driver(settings: Neo4jSettings) -> AsyncDriver:
 async def execute_query(
     driver: AsyncDriver, database: str, query: str, parameters: Dict[str, Any] | None = None
 ) -> List[Dict[str, Any]]:
-    """Run a Cypher query on the specified database.
+    """
+    Executa uma consulta Cypher no banco de dados Neo4j especificado.
 
-    Parameters
-    ----------
-    driver : AsyncDriver
-        Driver instance returned by :func:`get_neo4j_driver`.
-    database : str
-        Name of the database in which to execute the query.
-    query : str
-        Cypher query string.
-    parameters : dict, optional
-        Query parameters passed to Neo4j.
+    Esta função assíncrona executa uma query Cypher e retorna os resultados.
+    Ela inclui tratamento de erros para falhas na execução da consulta.
 
-    Returns
-    -------
-    list[dict]
-        Query records converted to dictionaries.
+    Args:
+        driver (AsyncDriver): Instância do driver retornada por `get_neo4j_driver`.
+        database (str): Nome do banco de dados no qual a consulta será executada.
+        query (str): A string da consulta Cypher.
+        parameters (Dict[str, Any], optional): Parâmetros da consulta passados para o Neo4j. Padrão é None.
+
+    Returns:
+        List[Dict[str, Any]]: Uma lista de dicionários, onde cada dicionário representa um registro da consulta.
+
+    Raises:
+        Exception: Se houver um erro durante a execução da consulta.
     """
     parameters = parameters or {}
     try:

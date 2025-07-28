@@ -87,26 +87,26 @@ class SchedulerService:
         name: str,
         **kwargs: Any,
     ) -> None:
-        """Register a custom job with the scheduler.
+        """
+        Registra uma nova tarefa personalizada com o agendador.
 
-        Parameters
-        ----------
-        func : Callable
-            Coroutine or regular function to execute.
-        trigger : CronTrigger
-            Trigger defining when the job should run.
-        id : str
-            Unique identifier for the job.
-        name : str
-            Human friendly job name used in logs.
-        **kwargs : Any
-            Additional parameters forwarded to ``add_job``.
+        Args:
+            func (Callable): A função (corrotina ou regular) a ser executada.
+            trigger (CronTrigger): O gatilho que define quando a tarefa deve ser executada.
+            id (str): Um identificador único para a tarefa.
+            name (str): Um nome amigável para a tarefa, usado em logs.
+            **kwargs: Parâmetros adicionais a serem encaminhados para `scheduler.add_job`.
         """
         self.scheduler.add_job(func, trigger, id=id, name=name, **kwargs)
         logger.info("Job '%s' added to scheduler.", name)
 
     def remove_job(self, job_id: str) -> None:
-        """Remove a job from the scheduler by its identifier."""
+        """
+        Remove uma tarefa do agendador pelo seu identificador.
+
+        Args:
+            job_id (str): O identificador único da tarefa a ser removida.
+        """
         self.scheduler.remove_job(job_id)
         logger.info("Job '%s' removed from scheduler.", job_id)
 

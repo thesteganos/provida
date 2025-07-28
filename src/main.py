@@ -5,7 +5,15 @@ from src.app.config.logging_config import setup_logging
 
 def main() -> None:
     """
-    Main function to run the application, including the scheduler.
+    Função principal para iniciar a aplicação Pró-Vida.
+
+    Esta função configura o sistema de logging, inicializa e inicia o serviço de agendamento
+    para tarefas autônomas (como a curadoria de conhecimento diária e revisões trimestrais).
+    Ela mantém o loop de eventos assíncrono em execução para permitir que as tarefas agendadas
+    e outras operações assíncronas sejam executadas em segundo plano.
+
+    A aplicação pode ser encerrada via `KeyboardInterrupt` (Ctrl+C) ou `SystemExit`,
+    garantindo o desligamento gracioso do agendador.
     """
     setup_logging() # Configure logging first
     logger = logging.getLogger(__name__) # Get logger after configuration

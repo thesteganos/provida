@@ -60,9 +60,22 @@ class DetailLevel(str, Enum):
     padrao = "padrao"
     detalhado = "detalhado"
 
-def _format_text_for_display(text_content: str, max_lines: Optional[int] = None, highlight_keywords: Optional[str] = None) -> Text:
+def _format_text_for_display(
+    text_content: str,
+    max_lines: Optional[int] = None,
+    highlight_keywords: Optional[str] = None
+) -> Text:
     """
     Formata o texto para exibição na CLI, aplicando truncamento e destaque de palavras-chave.
+
+    Args:
+        text_content (str): O conteúdo de texto a ser formatado.
+        max_lines (Optional[int]): O número máximo de linhas a serem exibidas. Se o texto exceder,
+                                    ele será truncado.
+        highlight_keywords (Optional[str]): Uma string de palavras-chave separadas por vírgulas para destacar.
+
+    Returns:
+        Text: Um objeto Rich Text formatado.
     """
     lines = text_content.splitlines()
     original_line_count = len(lines)
@@ -83,9 +96,18 @@ def _format_text_for_display(text_content: str, max_lines: Optional[int] = None,
 
     return formatted_text
 
-async def _prompt_for_feedback(query: str, response_summary: str, agent_type: str):
+async def _prompt_for_feedback(
+    query: str,
+    response_summary: str,
+    agent_type: str
+):
     """
-    Prompt the user for feedback and collect it using the FeedbackAgent.
+    Solicita feedback ao usuário e o coleta usando o FeedbackAgent.
+
+    Args:
+        query (str): A consulta original ou tópico da pesquisa.
+        response_summary (str): O resumo da resposta fornecida ao usuário.
+        agent_type (str): O tipo de agente que gerou a resposta (e.g., "RAG", "Deep Research").
     """
     console.print("\n[bold blue]Gostaria de fornecer feedback sobre esta interação?[/bold blue]")
     provide_feedback = Prompt.ask("[bold blue]Digite 's' para sim ou 'n' para não[/bold blue]", choices=["s", "n"], default="n")
@@ -109,6 +131,9 @@ async def _prompt_for_feedback(query: str, response_summary: str, agent_type: st
 def _write_config_to_yaml(updated_settings: GlobalSettings):
     """
     Escreve as configurações atualizadas de volta para o config.yaml.
+
+    Args:
+        updated_settings (GlobalSettings): O objeto de configurações Pydantic atualizado.
     """
     config_path = Path(__file__).parent.parent.parent.parent / 'config.yaml'
     try:

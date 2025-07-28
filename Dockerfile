@@ -1,23 +1,29 @@
-# Use uma imagem base oficial do Python
-FROM python:3.10-slim
+# Stage 1: Build dependencies
+FROM python:3.10-slim as builder
 
-# Define o diretório de trabalho no container
 WORKDIR /app
 
-# Define a variável de ambiente para garantir que a saída do Python não seja bufferizada
-ENV PYTHONUNBUFFERED 1
+# Install uv
+RUN pip install uv==0.2.1
 
-# Define a variável de ambiente para que os módulos do projeto sejam encontrados
+# Copy requirements.txt and install dependencies using uv
+COPY requirements.txt .
+RUN uv pip install -r requirements.txt --system
+
+# Stage 2: Create final image
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Define environment variables
+ENV PYTHONUNBUFFERED 1
 ENV PYTHONPATH=/app
 
-# Copia o arquivo de dependências
-COPY requirements.txt .
+# Copy installed packages from builder stage
+COPY --from=builder /usr/local/lib/python3.10/site-packages/ /usr/local/lib/python3.10/site-packages/
 
-# Instala as dependências
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copia o restante do código da aplicação para o diretório de trabalho
+# Copy the rest of the application code
 COPY . .
 
-# Mantém o container rodando para que possamos usar `docker exec`
+# Keep the container running for development purposes
 CMD ["tail", "-f", "/dev/null"]

@@ -74,8 +74,13 @@ A interface (inicialmente CLI, com plano para web) será o centro de controle, o
 
 ## **9\. Logs e Transparência (Diário de Bordo)**
 
-* Um arquivo de log (system\_log.txt), legível por humanos, será mantido.  
-* Ele registrará todas as ações significativas do sistema, incluindo **todas as decisões autônomas tomadas pelo Agente Curador**.
+* Um arquivo de log (`system_log.txt`), legível por humanos, será mantido para registrar todas as ações significativas do sistema. Este "Diário de Bordo" serve como um registro auditável e detalhado das operações do Pró-Vida, garantindo transparência e verificabilidade.
+* **Conteúdo do Diário de Bordo:**
+    * **Decisões Autônomas:** Todas as decisões tomadas por agentes autônomos, especialmente o Agente Curador, serão registradas com carimbo de data/hora, incluindo a lógica que levou à decisão (ex: "Agente Curador atualizou o grafo de conhecimento com evidência Nível A contradizendo Nível C para o tópico X").
+    * **Eventos de Sistema:** Início e fim de processos, erros, avisos, e interações com APIs externas.
+    * **Atualizações de Conhecimento:** Registro de artigos adicionados, modificados ou removidos do grafo de conhecimento, com seus respectivos IDs de fonte.
+    * **Intervenções Manuais:** Qualquer ajuste ou aprovação do usuário que altere o fluxo autônomo do sistema.
+* **Propósito:** O Diário de Bordo permite que o usuário e os desenvolvedores compreendam o comportamento do sistema, depurem problemas e auditem a evolução da base de conhecimento ao longo do tempo. Ele é crucial para a confiança no sistema, pois todas as ações são rastreáveis e explicáveis.
 
 ## **10\. Engenharia de Contexto e Guardrails para o gemini-cli**
 

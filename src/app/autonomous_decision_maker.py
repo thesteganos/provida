@@ -14,8 +14,17 @@ RULES_PATH = Path(__file__).resolve().parent.parent / "config" / "rules.json"
 with open(RULES_PATH, "r", encoding="utf-8") as file:
     rules: List[Dict[str, Any]] = json.load(file)["rules"]
 
-def get_nested_value(data: Dict[str, Any], key_path: str):
-    """Helper to get a nested value from a dictionary using a dot-separated path."""
+def get_nested_value(data: Dict[str, Any], key_path: str) -> Any:
+    """
+    Helper para obter um valor aninhado de um dicionário usando um caminho separado por pontos.
+
+    Args:
+        data (Dict[str, Any]): O dicionário de onde extrair o valor.
+        key_path (str): O caminho da chave separado por pontos (e.g., "user.profile.name").
+
+    Returns:
+        Any: O valor aninhado ou None se a chave não for encontrada.
+    """
     keys = key_path.split('.')
     current_value = data
     for key in keys:
@@ -26,7 +35,16 @@ def get_nested_value(data: Dict[str, Any], key_path: str):
     return current_value
 
 def evaluate_conditions(rule: Dict[str, Any], context: Dict[str, Any]) -> bool:
-    """Evaluate whether ``rule`` should trigger given ``context``."""
+    """
+    Avalia se uma regra deve ser acionada dado o contexto atual.
+
+    Args:
+        rule (Dict[str, Any]): O objeto da regra, conforme definido em rules.json.
+        context (Dict[str, Any]): O dicionário de contexto contendo os dados atuais do sistema.
+
+    Returns:
+        bool: True se a condição da regra for satisfeita, False caso contrário.
+    """
     condition = rule["condition"]
     condition_type = condition["type"]
 
@@ -68,11 +86,17 @@ def evaluate_conditions(rule: Dict[str, Any], context: Dict[str, Any]) -> bool:
         return False
 
 def execute_action(action: Dict[str, Any], context: Dict[str, Any]) -> None:
-    """Execute the given action with the provided context."""
+    """
+    Executa uma ação específica definida na regra.
+
+    Args:
+        action (Dict[str, Any]): O objeto da ação a ser executada.
+        context (Dict[str, Any]): O dicionário de contexto para resolver parâmetros dinâmicos.
+    """
     action_type = action["type"]
     params = action.get("params", {})
 
-    # Resolve parameters that are context paths
+    # Resolve parâmetros que são caminhos no contexto
     resolved_params = {}
     for key, value in params.items():
         if isinstance(value, str) and '.' in value:
@@ -92,7 +116,12 @@ def execute_action(action: Dict[str, Any], context: Dict[str, Any]) -> None:
         logger.warning(f"Unrecognized action type: {action_type}")
 
 def make_autonomous_decisions(context: Dict[str, Any]) -> None:
-    """Run the decision loop for all configured rules."""
+    """
+    Executa o loop de decisão para todas as regras configuradas.
+
+    Args:
+        context (Dict[str, Any]): O dicionário de contexto contendo os dados atuais do sistema.
+    """
     for rule in rules:
         if evaluate_conditions(rule, context):
             system_logger.info(f"Rule '{rule['id']}' triggered: {rule['description']}")

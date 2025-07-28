@@ -1,15 +1,56 @@
 .App {
   text-align: center;
-  margin-top: 50px;
+  margin-top: 20px;
+  font-family: Arial, sans-serif;
 }
 
+.App h1 {
+  color: #2c3e50;
+  margin-bottom: 30px;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+}
+
+/* General button styling */
 button {
-  margin-top: 20px;
+  background-color: #3498db;
+  color: white;
   padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
   font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* General label styling */
+label {
+  font-size: 18px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
 }
 
-label {
-  font-size: 18px;
+/* Checkbox styling */
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }

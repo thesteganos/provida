@@ -1,0 +1,30 @@
+.graph-view {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  text-align: left;
+}
+
+.graph-view h2 {
+  color: #333;
+  text-align: center;
+}
+
+.graph-view h3 {
+  color: #555;
+  margin-top: 15px;
+}
+
+.graph-view ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.graph-view li {
+  background-color: #eef;
+  margin-bottom: 5px;
+  padding: 8px;
+  border-radius: 4px;
+}

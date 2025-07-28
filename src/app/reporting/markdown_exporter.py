@@ -11,6 +11,13 @@ class MarkdownExporter:
     def export_report(self, final_report: FinalReport, output_filename: str = "report.md") -> bool:
         """
         Exporta o relatório final para um arquivo Markdown.
+
+        Args:
+            final_report (FinalReport): O objeto FinalReport contendo os dados do relatório.
+            output_filename (str): O nome do arquivo de saída (padrão: "report.md").
+
+        Returns:
+            bool: True se o relatório foi exportado com sucesso, False caso contrário.
         """
         logger.info(f"Exportando relatório para Markdown: {output_filename}")
         
