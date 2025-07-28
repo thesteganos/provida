@@ -41,7 +41,7 @@ class TestWebSearch(unittest.TestCase):
     def test_search_web_auto_general(self, mock_pubmed_search, mock_brave_search):
         mock_brave_search_instance = mock_brave_search.return_value
         mock_brave_search_instance.search.return_value = [{'title': 'Auto General Result 1'}, {'title': 'Auto General Result 2'}]
-        
+
         result = search_web("test query", search_type="auto", count=2)
         
         mock_brave_search_instance.search.assert_called_once_with("test query", count=2)
@@ -52,6 +52,22 @@ class TestWebSearch(unittest.TestCase):
             search_web("test query", search_type="invalid")
         
         self.assertEqual(str(context.exception), "Invalid search type: invalid")
+
+    @patch('src.app.tools.web_search.BraveSearch')
+    @patch('src.app.tools.web_search.PubMedSearch')
+    def test_search_web_custom_allowed(self, mock_pubmed_search, mock_brave_search):
+        mock_brave_search_instance = mock_brave_search.return_value
+        mock_brave_search_instance.search.return_value = [{'title': 'Allowed Result'}]
+
+        result = search_web(
+            "Python programming",
+            search_type="general",
+            count=1,
+            allowed_topics=["programming"]
+        )
+
+        mock_brave_search_instance.search.assert_called_once_with("Python programming", count=1)
+        self.assertEqual(result, [{'title': 'Allowed Result'}])
 
 if __name__ == '__main__':
     unittest.main()

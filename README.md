@@ -1,7 +1,7 @@
 # Provida Project
 
 ## Overview
-Provida is an advanced AI research assistant specifically designed for bariatric surgeons. It provides evidence-based answers and conducts deep research using a multi-agent architecture, integrating various LLMs (Gemini 2.5 family), knowledge graphs (Neo4j), vector databases (ChromaDB), and external search tools (Brave Search, PubMed).
+Provida is an advanced AI research assistant specifically designed for bariatric surgeons. It provides evidence-based answers and conducts deep research using a multi-agent architecture, integrating various LLMs (Gemini 2.5 family), knowledge graphs (Neo4j), vector databases (ChromaDB), and external search tools (Brave Search, PubMed). All searches são voltadas à cirurgia bariátrica e ao tratamento da obesidade, mas é possível liberar outros assuntos passando `allowed_topics` para a função de busca.
 
 **Key Features:**
 - **Rapid Query (RAG Mode):** Quick, evidence-based answers from existing knowledge.

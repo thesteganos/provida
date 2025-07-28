@@ -6,9 +6,9 @@ from src.app.tools.web_search import search_web
 class TestWebSearchPerformance(unittest.TestCase):
     def setUp(self):
         self.search_queries = [
-            ("Python programming", "general", 5),
-            ("Machine learning", "academic", 5),
-            ("research on climate change", "auto", 5)
+            ("bariatric surgery techniques", "general", 5),
+            ("obesity treatment guidelines", "academic", 5),
+            ("latest studies on bariatric surgery", "auto", 5)
         ]
         self.execution_times = []
 
