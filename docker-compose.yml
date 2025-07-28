@@ -79,7 +79,7 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
-    command: server /data --console-address ":9001"
+    command: ["python", "src/main.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s

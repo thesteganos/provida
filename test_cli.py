@@ -182,12 +182,12 @@ async def test_profunda_command_happy_path(
     mock_prompt_for_feedback, mock_markdown_exporter, mock_docx_exporter, mock_pdf_exporter, mock_run_deep_research
 ):
     # Mockar o retorno de run_deep_research
-    mock_run_deep_research.return_value = {
-        "final_report": {
-            "summary": "Relatório final mockado da pesquisa profunda.",
-            "citations_used": [{"id": "Artigo X", "sentence_in_summary": "Citação mockada."}]
-        }
-    }
+    mock_run_deep_research.return_value = MagicMock(
+        final_report=MagicMock(
+            summary="Relatório final mockado da pesquisa profunda.",
+            citations_used=[MagicMock(id="Artigo X", sentence_in_summary="Citação mockada.")]
+        )
+    )
 
     result = runner.invoke(app, ["profunda", "inteligencia artificial"])
 
@@ -216,12 +216,12 @@ async def test_profunda_command_export_options(
     mock_prompt_for_feedback, mock_markdown_exporter, mock_docx_exporter, mock_pdf_exporter, mock_run_deep_research
 ):
     # Mockar o retorno de run_deep_research
-    mock_run_deep_research.return_value = {
-        "final_report": {
-            "summary": "Relatório para exportação.",
-            "citations_used": []
-        }
-    }
+    mock_run_deep_research.return_value = MagicMock(
+        final_report=MagicMock(
+            summary="Relatório para exportação.",
+            citations_used=[]
+        )
+    )
     # Mockar os métodos export_report para retornar True
     mock_pdf_exporter.return_value.export_report.return_value = True
     mock_docx_exporter.return_value.export_report.return_value = True
@@ -247,9 +247,12 @@ async def test_profunda_command_export_options(
 @patch('src.app.cli.run_deep_research')
 @patch('src.app.cli._prompt_for_feedback', new_callable=AsyncMock)
 async def test_profunda_command_search_limit(mock_prompt_for_feedback, mock_run_deep_research):
-    mock_run_deep_research.return_value = {
-        "final_report": {"summary": "Relatório com limite de busca.", "citations_used": []}
-    }
+    mock_run_deep_research.return_value = MagicMock(
+        final_report=MagicMock(
+            summary="Relatório com limite de busca.",
+            citations_used=[]
+        )
+    )
     result = runner.invoke(app, ["profunda", "topico", "--search-limit", "50"])
     assert result.exit_code == 0
     mock_run_deep_research.assert_called_once_with("topico", 50)
@@ -268,9 +271,11 @@ async def test_profunda_command_error_scenario(mock_prompt_for_feedback, mock_ru
 @patch('src.app.cli.run_deep_research')
 @patch('src.app.cli._prompt_for_feedback', new_callable=AsyncMock)
 async def test_profunda_command_no_report_summary(mock_prompt_for_feedback, mock_run_deep_research):
-    mock_run_deep_research.return_value = {
-        "final_report": {"error": "Relatório não gerado."}
-    }
+    mock_run_deep_research.return_value = MagicMock(
+        final_report=MagicMock(
+            error="Relatório não gerado."
+        )
+    )
     result = runner.invoke(app, ["profunda", "topico sem relatorio"])
     assert result.exit_code == 0
     assert "Erro na Pesquisa Profunda: Relatório não gerado." in result.stdout

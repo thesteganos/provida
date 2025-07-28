@@ -29,10 +29,11 @@ class BraveSearch:
             "q": query,
             "count": count
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.get("https://api.search.brave.com/res/v1/web/search", headers=self.headers, params=params)
-            response.raise_for_status() # Raise an exception for HTTP errors
-            return response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get("https://api.search.brave.com/res/v1/web/search", headers=self.headers, params=params)
+                response.raise_for_status() # Raise an exception for HTTP errors
+                return response.json()
         except httpx.RequestError as e:
             print(f"Error during Brave Search API call: {e}")
             return {"error": str(e)}

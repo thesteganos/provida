@@ -37,7 +37,7 @@ class SynthesisAgent:
         )
 
         try:
-            import json
+            response = await self.model.generate_content_async(prompt)
             summary_data = FinalReport(**json.loads(response.text))
             return summary_data
         except Exception as e:

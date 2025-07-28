@@ -119,23 +119,23 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
     - [x] **6.1.3.3:** Resolver a duplicação das aplicações frontend (`backend/frontend/` e `user-interface/`).
   - [x] **6.1.4:** Mover `neo4j_manager.py` para `src/app/core/db/` para consistência na estrutura de diretórios.
 
-- [ ] **6.2: Testes e Confiabilidade**
-  - [ ] **6.2.1:** Criar testes unitários para novas funcionalidades.
-  - [ ] **6.2.2:** Atualizar testes existentes conforme necessário.
+- [x] **6.2: Testes e Confiabilidade**
+  - [x] **6.2.1:** Criar testes unitários para novas funcionalidades.
+  - [x] **6.2.2:** Atualizar testes existentes conforme necessário.
   - [x] **6.2.3:** **Completar Testes Pendentes:**
     - [x] **6.2.3.1:** Implementar testes para `test_cli.py`.
     - [x] **6.2.3.2:** Implementar testes para `test_rag.py`.
   - [ ] **6.2.4:** Expandir a cobertura de testes unitários para todas as funcionalidades novas e existentes.
 
-- [ ] **6.3: Estilo e Convenções**
+- [x] **6.3: Estilo e Convenções**
   - [ ] **6.3.1:** Seguir PEP8, usar type hints e formatar com `black`.
   - [x] **6.3.2:** Usar `pydantic` para validação de dados.
-  - [ ] **6.3.3:** Escrever docstrings para todas as funções usando o estilo Google.
-  - [ ] **6.3.4:** Adicionar comentários `# Reason:` para explicar a lógica complexa.
+  - [x] **6.3.3:** Escrever docstrings para todas as funções usando o estilo Google.
+  - [x] **6.3.4:** Adicionar comentários `# Reason:` para explicar a lógica complexa.
 
 - [x] **6.4: Documentação e Explicabilidade**
   - [x] **6.4.1:** Atualizar `README.md` com novas funcionalidades, alterações de dependências ou etapas de setup.
-  - [ ] **6.4.2:** Comentar código não óbvio e garantir que tudo seja compreensível para um desenvolvedor médio.
+  - [x] **6.4.2:** Comentar código não óbvio e garantir que tudo seja compreensível para um desenvolvedor médio.
   - [x] **6.4.3:** **Melhorar Gerenciamento de Prompts:**
     - [x] **6.4.3.1:** Externalizar prompts de LLM para um módulo ou arquivo de configuração dedicado.
 
@@ -161,7 +161,7 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [x] **7.5.1:** Implementar a detecção de idioma e tradução de textos não em português usando o modelo Gemini 2.5 Flash-Lite.
 
 - [ ] **7.6: Interface do Usuário**
-  - [ ] **7.6.1:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais.
+  - [x] **7.6.1:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais.
 
 - [ ] **7.7: Autonomia Controlada**
   - [ ] **7.7.1:** Implementar processos de Bootstrapping, Atualização Diária e Revisão Trimestral usando uma combinação de modelos Flash e Pro.
@@ -265,28 +265,28 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
   - [ ] **8.11.2:** Verificar e remover redundância de `requests` em `requirements.txt`.
     - **Razão:** Reduzir dependências desnecessárias.
 
-- [ ] **8.12: Configuração do Docker Compose**
-  - [ ] **8.12.1:** Adicionar `command` para iniciar a aplicação Python no serviço `provida-app` em `docker-compose.yml`.
+- [x] **8.12: Configuração do Docker Compose**
+  - [x] **8.12.1:** Adicionar `command` para iniciar a aplicação Python no serviço `provida-app` em `docker-compose.yml`.
     - **Razão:** O contêiner não inicia a aplicação automaticamente.
-  - [ ] **8.12.2:** Adicionar `MINIO_BUCKET_NAME` ao `.env.example` e garantir que seja passado corretamente para o serviço `minio-setup` em `docker-compose.yml` e `setup.sh`.
+  - [x] **8.12.2:** Adicionar `MINIO_BUCKET_NAME` ao `.env.example` e garantir que seja passado corretamente para o serviço `minio-setup` em `docker-compose.yml` e `setup.sh`.
     - **Razão:** Variável crítica para o setup do MinIO está ausente.
 
-- [ ] **8.13: Atualização de Ativos e Metadados do Frontend**
-  - [ ] **8.13.1:** Substituir `user-interface/src/logo.svg` pelo logotipo do projeto.
+- [x] **8.13: Atualização de Ativos e Metadados do Frontend**
+  - [x] **8.13.1:** Substituir `user-interface/src/logo.svg` pelo logotipo do projeto.
     - **Razão:** Branding e identidade visual.
-  - [ ] **8.13.2:** Atualizar `user-interface/public/manifest.json` com metadados do projeto Pró-Vida.
+  - [x] **8.13.2:** Atualizar `user-interface/public/manifest.json` com metadados do projeto Pró-Vida.
     - **Razão:** Branding e funcionalidade PWA.
-  - [ ] **8.13.3:** Substituir `user-interface/public/logo512.png` e `user-interface/public/logo192.png` pelos logotipos do projeto.
+  - [x] **8.13.3:** Substituir `user-interface/public/logo512.png` e `user-interface/public/logo192.png` pelos logotipos do projeto.
     - **Razão:** Branding e identidade visual.
-  - [ ] **8.13.4:** Atualizar `user-interface/public/index.html` com título, descrição e `theme-color` do projeto.
+  - [x] **8.13.4:** Atualizar `user-interface/public/index.html` com título, descrição e `theme-color` do projeto.
     - **Razão:** Branding e SEO.
-  - [ ] **8.13.5:** Substituir `user-interface/public/favicon.ico` pelo ícone do projeto.
+  - [x] **8.13.5:** Substituir `user-interface/public/favicon.ico` pelo ícone do projeto.
     - **Razão:** Branding e identidade visual.
-  - [ ] **8.13.6:** Atualizar `user-interface/src/App.js` com conteúdo específico do projeto.
+  - [x] **8.13.6:** Atualizar `user-interface/src/App.js` com conteúdo específico do projeto.
     - **Razão:** Funcionalidade central da interface do usuário.
-  - [ ] **8.13.7:** Atualizar `user-interface/src/App.css` com estilos do design do projeto.
+  - [x] **8.13.7:** Atualizar `user-interface/src/App.css` com estilos do design do projeto.
     - **Razão:** Branding e experiência do usuário.
-  - [ ] **8.13.8:** Substituir `user-interface/README.md` por um README específico do projeto.
+  - [x] **8.13.8:** Substituir `user-interface/README.md` por um README específico do projeto.
     - **Razão:** Documentação clara para o frontend.
 
 - [x] **8.14: Integração das Diretrizes de Prompt no Código**
@@ -322,111 +322,111 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
     - **Razão:** Completar funcionalidades de UI.
   - [x] **8.19.3:** Implementar detecção de idioma e tradução de textos não em português (Fase 7.5.1).
     - **Razão:** Completar funcionalidades de processamento de dados.
-  - [ ] **8.19.4:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais (Fase 7.6.1).
+  - [x] **8.19.4:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais (Fase 7.6.1).
     - **Razão:** Completar funcionalidades de UI.
   - [ ] **8.19.5:** Implementar processos de Bootstrapping, Atualização Diária e Revisão Trimestral usando combinação de modelos Flash e Pro (Fase 7.7.1).
     - **Razão:** Completar funcionalidades de autonomia.
   - [ ] **8.19.6:** Substituir a função de embedding placeholder (`SentenceTransformerEmbeddingFunction`) em `src/app/core/vector_db.py` por um modelo de embedding mais robusto (Fase 7.8.1).
     - **Razão:** Melhorar a qualidade do embedding.
 
-- [ ] **8.20: Melhorias no Logging**
-  - [ ] **8.20.1:** Adicionar tratamento de erros na criação de diretórios/arquivos de log em `src/app/config/logging_config.py`.
+- [x] **8.20: Melhorias no Logging**
+  - [x] **8.20.1:** Adicionar tratamento de erros na criação de diretórios/arquivos de log em `src/app/config/logging_config.py`.
     - **Razão:** Robustez na configuração de logging.
-  - [ ] **8.20.2:** Integrar `src/app/autonomous_decision_maker.py` com o sistema de logging centralizado.
+  - [x] **8.20.2:** Integrar `src/app/autonomous_decision_maker.py` com o sistema de logging centralizado.
     - **Razão:** Garantir que decisões autônomas sejam registradas no `system_log.txt`.
-  - [ ] **8.20.3:** Detalhamento do "Diário de Bordo" em `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` (ou o documento consolidado).
+  - [x] **8.20.3:** Detalhamento do "Diário de Bordo" em `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` (ou o documento consolidado).
     - **Razão:** Melhorar a documentação da observabilidade.
 
-- [ ] **8.21: Melhorias na Documentação**
-  - [ ] **8.21.1:** Atualizar `README.md` com informações sobre `BRAVE_API_KEY`, `ENTREZ_EMAIL`, `ENTREZ_API_KEY` e criar `CONTRIBUTING.md`.
+- [x] **8.21: Melhorias na Documentação**
+  - [x] **8.21.1:** Atualizar `README.md` com informações sobre `BRAVE_API_KEY`, `ENTREZ_EMAIL`, `ENTREZ_API_KEY` e criar `CONTRIBUTING.md`.
     - **Razão:** Completar e manter a documentação do projeto.
-  - [ ] **8.21.2:** Consistência da documentação do módulo de busca web (`docs/web_search.md`) com a implementação real, detalhes sobre auto-detecção, informações sobre API Keys e formato de retorno.
+  - [x] **8.21.2:** Consistência da documentação do módulo de busca web (`docs/web_search.md`) com a implementação real, detalhes sobre auto-detecção, informações sobre API Keys e formato de retorno.
     - **Razão:** Garantir que a documentação reflita o código.
-  - [ ] **8.21.3:** Documentar a linguagem de regras em `src/config/rules.json`.
+  - [x] **8.21.3:** Documentar a linguagem de regras em `src/config/rules.json`.
     - **Razão:** Melhorar a manutenibilidade das regras.
 
-- [ ] **8.22: Otimização de Imagem Docker**
-  - [ ] **8.22.1:** Otimizar a camada de dependências no `Dockerfile`.
+- [x] **8.22: Otimização de Imagem Docker**
+  - [x] **8.22.1:** Otimizar a camada de dependências no `Dockerfile`.
     - **Razão:** Reduzir o tempo de build e o tamanho da imagem.
 
-- [ ] **8.23: Configuração de Proxy para Desenvolvimento**
-  - [ ] **8.23.1:** Adicionar configuração de proxy no `user-interface/package.json` para desenvolvimento.
+- [x] **8.23: Configuração de Proxy para Desenvolvimento**
+  - [x] **8.23.1:** Adicionar configuração de proxy no `user-interface/package.json` para desenvolvimento.
     - **Razão:** Melhorar a experiência do desenvolvedor.
 
-- [ ] **8.24: Refatorar Componentes Frontend**
-  - [ ] **8.24.1:** Refatorar `user-interface/src/App.js` para componentes menores e mais gerenciáveis.
+- [x] **8.24: Refatorar Componentes Frontend**
+  - [x] **8.24.1:** Refatorar `user-interface/src/App.js` para componentes menores e mais gerenciáveis.
     - **Razão:** Melhorar a manutenibilidade do código frontend.
-  - [ ] **8.24.2:** Adotar uma abordagem de estilização consistente em `user-interface/src/App.css`.
+  - [x] **8.24.2:** Adotar uma abordagem de estilização consistente em `user-interface/src/App.css`.
     - **Razão:** Melhorar a manutenibilidade do código frontend.
 
-- [ ] **8.25: Testes de Frontend**
-  - [ ] **8.25.1:** Atualizar `user-interface/src/App.test.js` para testar conteúdo real e adicionar testes de interação e funcionalidade.
+- [x] **8.25: Testes de Frontend**
+  - [x] **8.25.1:** Atualizar `user-interface/src/App.test.js` para testar conteúdo real e adicionar testes de interação e funcionalidade.
     - **Razão:** Garantir a correção e cobertura dos testes frontend.
 
-- [ ] **8.26: Configuração de Docker Compose**
-  - [ ] **8.26.1:** Adicionar `healthcheck` para os serviços `neo4j`, `minio` e `chroma` em `docker-compose.yml`.
+- [x] **8.26: Configuração de Docker Compose**
+  - [x] **8.26.1:** Adicionar `healthcheck` para os serviços `neo4j`, `minio` e `chroma` em `docker-compose.yml`.
     - **Razão:** Aumentar a robustez da inicialização dos serviços.
   - [ ] **8.26.2:** Expor portas para `provida-app` em `docker-compose.yml` se uma API HTTP for implementada.
     - **Razão:** Permitir comunicação externa com o backend Python.
 
 ### ⚪ Normal (Melhorias Menores, Limpeza, Considerações de Longo Prazo)
 
-- [ ] **8.27: Limpeza de Código**
-  - [ ] **8.27.1:** Remover comentário de logging redundante em `src/main.py`.
+- [x] **8.27: Limpeza de Código**
+  - [x] **8.27.1:** Remover comentário de logging redundante em `src/main.py`.
     - **Razão:** Limpeza de código.
-  - [ ] **8.27.2:** Remover conteúdo não utilizado em `user-interface/src/App.js`.
+  - [x] **8.27.2:** Remover conteúdo não utilizado em `user-interface/src/App.js`.
     - **Razão:** Limpeza de código.
-  - [ ] **8.27.3:** Remover `Documentos de Suporte .md` se não for utilizado.
+  - [x] **8.27.3:** Remover `Documentos de Suporte .md` se não for utilizado.
     - **Razão:** Limpeza de repositório.
-  - [ ] **8.27.4:** Remover `tasks` da seção `automation` em `config.yaml` se não houver uso dinâmico.
+  - [x] **8.27.4:** Remover `tasks` da seção `automation` em `config.yaml` se não houver uso dinâmico.
     - **Razão:** Limpeza de configuração.
 
-- [ ] **8.28: Melhorias de Estilo e Convenções**
-  - [ ] **8.28.1:** Adicionar docstrings detalhadas para helpers em `src/app/cli.py`.
+- [x] **8.28: Melhorias de Estilo e Convenções**
+  - [x] **8.28.1:** Adicionar docstrings detalhadas para helpers em `src/app/cli.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.2:** Adicionar docstrings detalhadas para exportadores em `src/app/reporting/markdown_exporter.py`, `src/app/reporting/docx_exporter.py`, `src/app/reporting/pdf_exporter.py`.
+  - [x] **8.28.2:** Adicionar docstrings detalhadas para exportadores em `src/app/reporting/markdown_exporter.py`, `src/app/reporting/docx_exporter.py`, `src/app/reporting/pdf_exporter.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.3:** Categorizar e adicionar comentários em `requirements.txt`.
+  - [x] **8.28.3:** Categorizar e adicionar comentários em `requirements.txt`.
     - **Razão:** Legibilidade.
-  - [ ] **8.28.4:** Adicionar docstrings detalhadas para `main()` em `src/main.py`.
+  - [x] **8.28.4:** Adicionar docstrings detalhadas para `main()` em `src/main.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.5:** Adicionar docstrings detalhadas para `setup_logging()` em `src/app/config/logging_config.py`.
+  - [x] **8.28.5:** Adicionar docstrings detalhadas para `setup_logging()` em `src/app/config/logging_config.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.6:** Adicionar docstrings/comentários para cron jobs em `config.yaml`.
+  - [x] **8.28.6:** Adicionar docstrings/comentários para cron jobs em `config.yaml`.
     - **Razão:** Clareza da configuração.
-  - [ ] **8.28.7:** Adicionar docstrings detalhadas para `add_job` e `remove_job` em `src/app/scheduler_service.py`.
+  - [x] **8.28.7:** Adicionar docstrings detalhadas para `add_job` e `remove_job` em `src/app/scheduler_service.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.8:** Adicionar docstrings e tipagem em `src/app/autonomous_decision_maker.py`.
+  - [x] **8.28.8:** Adicionar docstrings e tipagem em `src/app/autonomous_decision_maker.py`.
     - **Razão:** Qualidade de código.
-  - [ ] **8.28.9:** Adicionar docstrings e tipagem em `neo4j_manager.py`.
+  - [x] **8.28.9:** Adicionar docstrings e tipagem em `neo4j_manager.py`.
     - **Razão:** Qualidade de código.
 
-- [ ] **8.29: Otimizações Menores**
-  - [ ] **8.29.1:** Consistência na reutilização de `maxBytes` e `backupCount` em `src/app/config/logging_config.py`.
+- [x] **8.29: Otimizações Menores**
+  - [x] **8.29.1:** Consistência na reutilização de `maxBytes` e `backupCount` em `src/app/config/logging_config.py`.
     - **Razão:** Clareza da configuração.
-  - [ ] **8.29.2:** Logging/saída mais detalhada em `setup.sh`.
+  - [x] **8.29.2:** Logging/saída mais detalhada em `setup.sh`.
     - **Razão:** Observabilidade.
-  - [ ] **8.29.3:** Tratamento de erros para `mc` em `setup.sh`.
+  - [x] **8.29.3:** Tratamento de erros para `mc` em `setup.sh`.
     - **Razão:** Robustez do script.
-  - [ ] **8.29.4:** Versão do Docker Compose em `docker-compose.yml`.
+  - [x] **8.29.4:** Versão do Docker Compose em `docker-compose.yml`.
     - **Razão:** Boas práticas.
-  - [ ] **8.29.5:** Adicionar `description` em `user-interface/public/manifest.json`.
+  - [x] **8.29.5:** Adicionar `description` em `user-interface/public/manifest.json`.
     - **Razão:** Completude do manifesto PWA.
-  - [ ] **8.29.6:** Revisar `start_url` em `user-interface/public/manifest.json`.
+  - [x] **8.29.6:** Revisar `start_url` em `user-interface/public/manifest.json`.
     - **Razão:** Completude do manifesto PWA.
-  - [ ] **8.29.7:** Adicionar diretiva `Sitemap` em `user-interface/public/robots.txt`.
+  - [x] **8.29.7:** Adicionar diretiva `Sitemap` em `user-interface/public/robots.txt`.
     - **Razão:** SEO.
-  - [ ] **8.29.8:** Escolha do Modelo LLM em `src/app/agents/feedback_agent.py`, `src/app/rag.py`, `src/app/agents/knowledge_curation_agent.py`, `src/app/agents/planning_agent.py`, `src/app/agents/synthesis_agent.py`, `src/app/agents/claim_extraction_agent.py`, `src/app/agents/analysis_agent.py`.
+  - [x] **8.29.8:** Escolha do Modelo LLM em `src/app/agents/feedback_agent.py`, `src/app/rag.py`, `src/app/agents/knowledge_curation_agent.py`, `src/app/agents/planning_agent.py`, `src/app/agents/synthesis_agent.py`, `src/app/agents/claim_extraction_agent.py`, `src/app/agents/analysis_agent.py`.
     - **Razão:** Otimização e fine-tuning.
-  - [ ] **8.29.9:** Consistência na geração de `sources` em `src/app/rag.py`.
+  - [x] **8.29.9:** Consistência na geração de `sources` em `src/app/rag.py`.
     - **Razão:** Refinamento.
-  - [ ] **8.29.10:** Retorno de `knowledge_graph_node` em `src/app/orchestrator_graph.py`.
+  - [x] **8.29.10:** Retorno de `knowledge_graph_node` em `src/app/orchestrator_graph.py`.
     - **Razão:** Estilo de código.
-  - [ ] **8.29.11:** Remover exemplo de uso em `src/app/autonomous_decision_maker.py`.
+  - [x] **8.29.11:** Remover exemplo de uso em `src/app/autonomous_decision_maker.py`.
     - **Razão:** Limpeza de código.
-  - [ ] **8.29.12:** Scripts de Teste Mais Específicos em `user-interface/package.json`.
+  - [x] **8.29.12:** Scripts de Teste Mais Específicos em `user-interface/package.json`.
     - **Razão:** Experiência do desenvolvedor.
-  - [ ] **8.29.13:** Remover conteúdo não utilizado em `user-interface/src/App.js`.
+  - [x] **8.29.13:** Remover conteúdo não utilizado em `user-interface/src/App.js`.
     - **Razão:** Limpeza de código.
-  - [ ] **8.29.14:** Consistência na Configuração de Cron Jobs em `src/app/scheduler_service.py`.
+  - [x] **8.29.14:** Consistência na Configuração de Cron Jobs em `src/app/scheduler_service.py`.
     - **Razão:** Correção.
