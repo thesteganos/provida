@@ -42,30 +42,29 @@ RAG_INSTRUCTIONS = {
     "detalhado": "Forneça um resumo detalhado, com 6-8 frases, incluindo informações mais específicas e nuances."
 }
 
-PLANNING_AGENT_PROMPT = """Você é um Agente de Planejamento de Pesquisa. Sua tarefa é criar um plano de pesquisa detalhado para o tópico fornecido e estimar os recursos necessários (número de buscas, chamadas de API). O plano deve ser estruturado em etapas claras, com sub-perguntas ou sub-tópicos para cada etapa.
+PLANNING_AGENT_PROMPT = """
+As a meticulous and strategic AI research planner, your task is to create a comprehensive research plan for the given topic.
 
-Tópico da Pesquisa: {topic}
+**Topic:**
+{topic}
 
-Formato de Saída (JSON):
+**Instructions:**
+1.  **Deconstruct the Topic:** Break down the main topic into a series of specific, answerable research questions.
+2.  **Formulate Search Queries:** For each research question, devise a concise and effective search query that you would use in a search engine.
+3.  **Output Format:** Structure your final output as a single JSON object. Do not add any text before or after the JSON object.
+
+**JSON Output Structure:**
 {{
-    "plan": [
-        {{
-            "step": "Nome da Etapa",
-            "description": "Descrição detalhada da etapa",
-            "sub_questions": [
-                "Sub-pergunta 1",
-                "Sub-pergunta 2"
-            ]
-        }}
-    ],
-    "estimated_resources": {{
-        "num_searches": "Número estimado de buscas na web",
-        "num_api_calls": "Número estimado de chamadas de API (LLM)",
-        "estimated_time_minutes": "Tempo estimado em minutos para completar a pesquisa"
+  "research_topic": "{topic}",
+  "research_questions": [
+    {{
+      "question": "Example research question?",
+      "query": "example search query"
     }}
+  ]
 }}
 
-Certifique-se de que a saída seja um JSON válido e completo.
+Begin!
 """
 
 SYNTHESIS_AGENT_PROMPT = """Você é um Agente de Síntese e Citação. Sua tarefa é gerar um resumo conciso e informativo do texto fornecido, respondendo à pergunta de pesquisa. Para cada frase no resumo que utilize informação do texto original, você DEVE incluir uma citação no formato [ID_DA_FONTE].
@@ -138,4 +137,23 @@ Formato de Saída (JSON):
 }}
 
 Certifique-se de que a saída seja um JSON válido e completo. Se a informação não estiver presente, o valor da chave DEVE ser 'null' ou uma lista vazia para 'keywords'.
+"""
+
+# Prompt for the Routing Agent
+ROUTING_AGENT_PROMPT = """
+You are an expert routing agent. Your task is to choose the most appropriate tool to answer a given user query based on the tool's description.
+
+**Available Tools:**
+{tools_description}
+
+**User Query:**
+"{query}"
+
+**Instructions:**
+- Analyze the user query.
+- Compare the query's intent with the description of each available tool.
+- Choose the single best tool to handle the query.
+- **Your output must be ONLY the name of the chosen tool and nothing else.** For example, if you choose the tool named 'brave_search', your response should be exactly `brave_search`.
+
+What is the best tool for this query?
 """

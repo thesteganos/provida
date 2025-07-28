@@ -1,9 +1,9 @@
-import json
 import logging
+from typing import Dict, Any
 
 from app.core.llm_provider import llm_provider
 from app.config.settings import settings
-from typing import Dict, Any
+from app.agents.utils import extract_json_from_response
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +12,12 @@ class PlanningAgent:
         self.model = llm_provider.get_model(settings.models.planning_agent)
 
     async def generate_research_plan(self, topic: str) -> Dict[str, Any]:
-        """Generates a detailed research plan and estimates resources.
+        """Gera um plano de pesquisa detalhado e estima os recursos.
 
         Args:
-            topic (str): The research topic.
+            topic (str): O tópico da pesquisa.
         Returns:
-            Dict[str, Any]: A dictionary containing the research plan and estimated resources.
+            Dict[str, Any]: Um dicionário contendo o plano de pesquisa e os recursos estimados.
         """
         from app.prompts.llm_prompts import PLANNING_AGENT_PROMPT
 
@@ -25,9 +25,8 @@ class PlanningAgent:
 
         try:
             response = await self.model.generate_content_async(prompt)
-            cleaned_text = response.text.strip().removeprefix("```json").removesuffix("```")
-            plan_data = json.loads(cleaned_text)
+            plan_data = extract_json_from_response(response.text)
             return plan_data
-        except Exception as e:
+        except (ValueError, Exception) as e:
             logger.error(f"Erro ao gerar plano de pesquisa: {e}", exc_info=True)
             return {"error": str(e), "plan": [], "estimated_resources": {}}

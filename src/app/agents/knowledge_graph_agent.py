@@ -33,30 +33,41 @@ class KnowledgeGraphAgent:
         Cria/atualiza nós para a Fonte, o Tópico, a Evidência, o Resumo e as Palavras-chave,
         e estabelece as relações entre eles.
         """
-        # Extrai os dados necessários da análise.
-        # Supõe-se que o AnalysisAgent fornecerá esses campos.
+        # 1. Validação robusta dos dados de entrada.
         summary = analysis_data.get("summary")
         evidence_level = analysis_data.get("evidence_level")
         keywords = analysis_data.get("keywords", [])
 
-        if not all([summary, evidence_level]):
-            logger.warning(
-                f"Dados de análise incompletos para a fonte {source_identifier}. "
-                "É necessário 'summary' e 'evidence_level'."
-            )
-            return None
+        if not summary or not isinstance(summary, str):
+            raise ValueError(f"O campo 'summary' está ausente ou não é uma string para a fonte {source_identifier}")
+        if not evidence_level or not isinstance(evidence_level, str):
+            raise ValueError(f"O campo 'evidence_level' está ausente ou não é uma string para a fonte {source_identifier}")
+        if not isinstance(keywords, list):
+            raise ValueError(f"O campo 'keywords' não é uma lista para a fonte {source_identifier}")
 
         query = """
+        // 1. Encontra ou cria os nós principais: Tópico, Fonte e Nível de Evidência.
         MERGE (topic:Topic {name: $research_topic})
         MERGE (source:Source {identifier: $source_identifier})
+        MERGE (evidence:EvidenceLevel {level: $evidence_level})
+
+        // 2. Garante que a Fonte esteja relacionada ao Tópico.
         MERGE (source)-[:RELATED_TO]->(topic)
 
-        MERGE (summary:Summary {text: $summary, source_id: $source_identifier})
-        MERGE (source)-[:CONTAINS]->(summary)
+        // 3. Faz o MERGE do Resumo no contexto da Fonte.
+        //    Isso garante que um Resumo com o mesmo texto não seja duplicado para a mesma Fonte.
+        //    ON CREATE define as propriedades apenas se o nó for criado.
+        //    ON MATCH pode ser usado para atualizar propriedades se o nó já existir.
+        MERGE (summary:Summary {text: $summary, source_identifier: $source_identifier})
 
-        MERGE (evidence:EvidenceLevel {level: $evidence_level})
+        // 4. Garante que as conexões do Resumo com a Fonte, Tópico e Evidência existam.
+        MERGE (source)-[:CONTAINS]->(summary)
+        MERGE (topic)-[:HAS_SUMMARY]->(summary)
         MERGE (summary)-[:HAS_EVIDENCE]->(evidence)
 
+        // 5. Processa e conecta todas as palavras-chave ao Resumo.
+        //    O UNWIND + MERGE é uma maneira idempotente de garantir que todas as palavras-chave
+        //    sejam conectadas sem criar duplicatas.
         WITH summary
         UNWIND $keywords as keyword_name
         MERGE (kw:Keyword {name: keyword_name})
