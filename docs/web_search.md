@@ -1,55 +1,44 @@
 # Web Search Module
 
-The `web_search` module provides functionality to search the web for information using different search types, such as general web search and academic search. It also includes an auto-detection feature to determine the appropriate search type based on the query.
+The `web_search` module provides asynchronous helpers for querying the web. Two search backends are available:
+Brave Search for general content and PubMed for academic references. The helper can also auto-detect which backend
+to use based on the query.
 
-## Functions
+## `search_web(query, search_type="general", count=10)`
 
-### `search_web(query, search_type="general", count=10)`
+- **Parameters**
+  - `query` (`str`): text to search.
+  - `search_type` (`str`): `general`, `academic`, or `auto` (default `general`).
+  - `count` (`int`): number of results to return.
+- **Returns**: list of dictionaries with `title` and `url` keys.
+- **Raises**: `ValueError` for unknown search types.
 
-Searches the web for the given query using the specified search type.
+## Environment Variables
 
-- **Parameters:**
-  - `query` (str): The search query.
-  - `search_type` (str): The type of search to perform. Can be "general", "academic", or "auto". Defaults to "general".
-  - `count` (int): The number of search results to return. Defaults to 10.
-  
-- **Returns:**
-  - A list of dictionaries, each containing the title and URL of a search result.
+- `BRAVE_API_KEY` – required for Brave Search queries.
+- `ENTREZ_EMAIL` and `ENTREZ_API_KEY` – required for PubMed queries.
 
-- **Raises:**
-  - `ValueError`: If an invalid search type is provided.
-  - `Exception`: If an error occurs during the search process.
+Without these variables set, requests to the respective service will fail.
 
-- **Notes:**
-  - The `search_type` parameter can be "general", "academic", or "auto". The "auto" option will attempt to determine the appropriate search type based on the query.
+## Auto-Detection
+
+When `search_type="auto"` the query is inspected for academic terms. Queries containing words such as
+"study", "trial" or "pubmed" are routed to PubMed; otherwise Brave Search is used.
 
 ## Usage Examples
 
-### General Web Search
-
 ```python
 from src.app.tools.web_search import search_web
 
-results = search_web("Python programming", search_type="general", count=5)
-for result in results:
-    print(result['title'], result['url'])
+results = await search_web("Python programming", search_type="general", count=5)
+for item in results:
+    print(item["title"], item["url"])
 ```
 
-### Academic Search
-
 ```python
-from src.app.tools.web_search import search_web
-
-results = search_web("Machine learning", search_type="academic", count=5)
-for result in results:
-    print(result['title'], result['url'])
+results = await search_web("Machine learning", search_type="academic", count=5)
 ```
 
-### Auto-Detection
-
 ```python
-from src.app.tools.web_search import search_web
-
-results = search_web("research on climate change", search_type="auto", count=5)
-for result in results:
-    print(result['title'], result['url'])
+results = await search_web("latest studies on diabetes", search_type="auto", count=5)
+```

@@ -1,4 +1,8 @@
+"""Utility for scheduling autonomous maintenance tasks."""
+
 import logging
+from typing import Any, Callable
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -9,8 +13,11 @@ from app.agents.knowledge_curation_agent import KnowledgeCurationAgent
 logger = logging.getLogger(__name__)
 
 class SchedulerService:
-    """
-    Serviço responsável por agendar e gerenciar tarefas autônomas.
+    """Manage background jobs for knowledge curation.
+
+    The service wraps an ``AsyncIOScheduler`` instance and exposes helper
+    methods to register or remove jobs. Jobs are only added if automation is
+    enabled in ``settings.automation``.
     """
 
     def __init__(self):
@@ -72,19 +79,36 @@ class SchedulerService:
         else:
             logger.info("Automation is disabled in settings. No jobs scheduled.")
 
-    def add_job(self, func, trigger, id, name, **kwargs):
-        """
-        Adiciona uma tarefa personalizada ao agendador.
+    def add_job(
+        self,
+        func: Callable[..., Any],
+        trigger: CronTrigger,
+        id: str,
+        name: str,
+        **kwargs: Any,
+    ) -> None:
+        """Register a custom job with the scheduler.
+
+        Parameters
+        ----------
+        func : Callable
+            Coroutine or regular function to execute.
+        trigger : CronTrigger
+            Trigger defining when the job should run.
+        id : str
+            Unique identifier for the job.
+        name : str
+            Human friendly job name used in logs.
+        **kwargs : Any
+            Additional parameters forwarded to ``add_job``.
         """
         self.scheduler.add_job(func, trigger, id=id, name=name, **kwargs)
-        logger.info(f"Job '{name}' added to scheduler.")
+        logger.info("Job '%s' added to scheduler.", name)
 
-    def remove_job(self, job_id):
-        """
-        Remove uma tarefa do agendador.
-        """
+    def remove_job(self, job_id: str) -> None:
+        """Remove a job from the scheduler by its identifier."""
         self.scheduler.remove_job(job_id)
-        logger.info(f"Job '{job_id}' removed from scheduler.")
+        logger.info("Job '%s' removed from scheduler.", job_id)
 
 # Example usage (for testing purposes, not part of the main application flow)
 async def main():
