@@ -13,6 +13,8 @@
   - **Value:** Replace `minioadmin` with a secure access key for MinIO.
 - **MinIO Secret Key:** `MINIO_SECRET_KEY`
   - **Value:** Replace `minio_senha_super_segura` with a secure secret key for MinIO.
+- **MinIO Bucket Name:** `MINIO_BUCKET_NAME`
+  - **Value:** Name of the bucket to be created in MinIO (e.g., `provida-bucket`).
 
 ### Database Configurations
 - **Neo4j Knowledge URI:** `DATABASE__NEO4J_KNOWLEDGE__URI`

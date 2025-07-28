@@ -1,17 +1,23 @@
-google-generativeai
-langgraph
-google-cloud-aiplatform
-python-dotenv
-pyyaml
-neo4j
-minio
-chromadb
-docker
-requests
-beautifulsoup4
-pypdf2
-rich # Para uma CLI mais bonita
-pydantic
-APScheduler
-fpdf2
-python-docx
+# LLM and AI
+google-generativeai==0.2.2
+langgraph==0.0.14
+google-cloud-aiplatform==1.38.0
+
+# Core utilities
+python-dotenv==1.0.0
+pyyaml==6.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+pypdf2==3.0.1
+rich==13.5.2
+pydantic==2.6.4
+APScheduler==3.10.4
+fpdf2==2.7.8
+python-docx==1.1.0
+
+# Databases and storage
+neo4j==5.18.0
+minio==7.1.16
+chromadb==0.4.14
+docker==7.0.0
+
