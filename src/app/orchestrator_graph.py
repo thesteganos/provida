@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.research_models import CollectedDataItem, AnalyzedDataItem, FinalReport, VerificationReport
 
 from langgraph.graph import END, StateGraph
@@ -10,6 +10,7 @@ from app.agents.analysis_agent import AnalysisAgent
 from app.agents.knowledge_graph_agent import KnowledgeGraphAgent
 from app.agents.planning_agent import PlanningAgent
 from app.agents.synthesis_agent import SynthesisAgent
+from app.agents.data_collection_agent import DataCollectionAgent
 from app.services.fact_checking_service import verify_text_against_kg
 
 logger = logging.getLogger(__name__)
@@ -47,14 +48,20 @@ async def plan_node(state: ResearchState) -> Dict[str, Any]:
     # Para fins de desmocking, vamos assumir que o ambiente suporta o await aqui.
     plan_data = await planning_agent.generate_research_plan(state['topic'])
 
-    # collected_data será preenchido por um nó de coleta de dados real posteriormente.
-    # Por enquanto, inicializamos como vazio.
-    collected_data: List[CollectedDataItem] = []
-
     current_search_limit = state.get('search_limit')
     logger.info(f"Limite de busca para esta execução: {current_search_limit if current_search_limit is not None else 'padrão do sistema'}")
 
-    return {"research_plan": plan_data, "collected_data": collected_data}
+    return {"research_plan": plan_data}
+
+
+async def collection_node(state: ResearchState) -> Dict[str, Any]:
+    """
+    Nó responsável por coletar dados com base no plano de pesquisa.
+    """
+    logger.info("Coletando dados de fontes externas...")
+    collection_agent = DataCollectionAgent()
+    collected_data = await collection_agent.collect_data(state['research_plan'])
+    return {"collected_data": collected_data}
 
 
 async def analysis_node(state: ResearchState) -> Dict[str, Any]:
@@ -64,15 +71,18 @@ async def analysis_node(state: ResearchState) -> Dict[str, Any]:
     logger.info("Analisando dados coletados...")
     analysis_agent = AnalysisAgent()
     tasks = [
-        analysis_agent.classify_evidence(item["content"])
-        for item in state["collected_data"]
+        analysis_agent.classify_evidence(
+            text=item.content,
+            source_identifier=item.source_identifier
+        )
+        for item in state.collected_data
     ]
     analysis_results = await asyncio.gather(*tasks)
 
     # Combina o resultado da análise com o identificador da fonte
     analyzed_data = [
-        AnalyzedDataItem(source_identifier=item["source_identifier"], analysis=result)
-        for item, result in zip(state["collected_data"], analysis_results)
+        AnalyzedDataItem(source_identifier=item.source_identifier, analysis=result)
+        for item, result in zip(state.collected_data, analysis_results)
     ]
     return {"analyzed_data": analyzed_data}
 
@@ -140,13 +150,15 @@ def build_research_graph():
     workflow = StateGraph(ResearchState)
 
     workflow.add_node("plan", plan_node)
+    workflow.add_node("collect", collection_node)
     workflow.add_node("analyze", analysis_node)
     workflow.add_node("update_kg", knowledge_graph_node)
     workflow.add_node("synthesis", synthesis_node)
     workflow.add_node("fact_check", fact_check_node)
 
     workflow.set_entry_point("plan")
-    workflow.add_edge("plan", "analyze")
+    workflow.add_edge("plan", "collect")
+    workflow.add_edge("collect", "analyze")
     workflow.add_edge("analyze", "update_kg")
     workflow.add_edge("update_kg", "synthesis")
     workflow.add_edge("synthesis", "fact_check")

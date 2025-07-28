@@ -28,6 +28,10 @@ minio:
 google:
   api_key: ${GOOGLE_API_KEY}
 
+# RAG specific settings
+rag:
+  n_results: 5
+
 # Search Configuration
 search:
   deep_search_limit: 100  # Default limit for deep search mode

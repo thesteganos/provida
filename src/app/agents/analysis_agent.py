@@ -1,11 +1,11 @@
 import json
 import logging
-import hashlib
 
 from app.agents.memory_agent import MemoryAgent
 from app.core.llm_provider import llm_provider
 from app.config.settings import settings
 from app.models.analysis_models import AnalysisResult
+from app.agents.utils import extract_json_from_response
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -15,54 +15,46 @@ class AnalysisAgent:
         self.model = llm_provider.get_model(settings.models.analysis_agent)
         self.memory = MemoryAgent(agent_id="analysis_agent")
 
-    async def classify_evidence(self, text: str) -> AnalysisResult:
+    async def classify_evidence(self, text: str, source_identifier: str) -> AnalysisResult:
         """
-        Analyzes the provided text to extract a summary, classify its evidence
-        level (A, B, C, D, E), and identify relevant keywords.
-
-        This method now serves a dual purpose: classification for immediate use and
-        data extraction for populating the knowledge graph, as required by the
-        KnowledgeGraphAgent.
+        Analisa o texto fornecido para extrair um resumo, classificar seu nível de evidência
+        e identificar palavras-chave relevantes. Usa um identificador de fonte para cache.
 
         Args:
-            text (str): The text to classify.
+            text (str): O texto a ser classificado.
+            source_identifier (str): O identificador único da fonte (ex: URL) para cache.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the classified evidence level and justification.
+            AnalysisResult: Um objeto Pydantic contendo os dados da análise.
         """
-        # Gera um hash do texto para usar como chave única na memória
-        text_hash = hashlib.sha256(text.encode()).hexdigest()
-        recalled_data_str = await self.memory.recall(key=text_hash)
+        # Usa o source_identifier como chave de cache, que é mais estável e eficiente.
+        recalled_data_str = await self.memory.recall(key=source_identifier)
 
         if recalled_data_str:
-            logger.info(f"Classification for text hash {text_hash[:10]}... recalled from memory.")
+            logger.info(f"Análise para a fonte '{source_identifier}' recuperada da memória.")
             try:
-                # Se encontrou na memória, retorna o resultado salvo
                 return AnalysisResult(**json.loads(recalled_data_str))
             except json.JSONDecodeError:
-                logger.warning(f"Failed to decode recalled memory for hash {text_hash[:10]}... Re-classifying.")
+                logger.warning(f"Falha ao decodificar memória para a fonte '{source_identifier}'. Reanalisando.")
 
-        # Se não encontrou na memória, prossegue com a classificação
         from app.prompts.llm_prompts import ANALYSIS_AGENT_PROMPT
-
         prompt = ANALYSIS_AGENT_PROMPT.format(text=text)
 
         try:
             response = await self.model.generate_content_async(prompt)
-            # Limpa a resposta do LLM para extrair o JSON de forma mais robusta
-            cleaned_text = response.text.strip().removeprefix("```json").removesuffix("```")
-            classification_data = AnalysisResult(**json.loads(cleaned_text))
+            classification_dict = extract_json_from_response(response.text)
+            classification_data = AnalysisResult(**classification_dict)
 
-            # Armazena a nova classificação na memória para uso futuro
-            await self.memory.remember(key=text_hash, value=json.dumps(classification_data))
+            # Armazena o resultado na memória usando o source_identifier.
+            await self.memory.remember(key=source_identifier, value=classification_data.model_dump_json())
 
             return classification_data
-        except json.JSONDecodeError as e:
+        except ValueError as e: # Captura o erro do extract_json_from_response
             logger.error(
-                f"Falha ao decodificar JSON da resposta do LLM: {e}\nResposta: {response.text}",
+                f"Falha ao extrair JSON da resposta do LLM para a fonte '{source_identifier}': {e}",
                 exc_info=True
             )
             return AnalysisResult(summary="Falha ao analisar a classificação.", evidence_level="E", justification="Resposta JSON inválida do modelo", keywords=[])
         except Exception as e:
-            logger.error(f"Erro inesperado durante a classificação de evidência: {e}", exc_info=True)
+            logger.error(f"Erro inesperado durante a classificação para a fonte '{source_identifier}': {e}", exc_info=True)
             return AnalysisResult(summary="Ocorreu um erro inesperado.", evidence_level="E", justification=f"Erro inesperado: {str(e)}", keywords=[])
