@@ -18,6 +18,7 @@ services:
     volumes:
       # Monta o código-fonte para desenvolvimento em tempo real
       - ./src:/app/src
+    command: ["python", "-m", "src.main"]
     depends_on:
       - neo4j
       - minio

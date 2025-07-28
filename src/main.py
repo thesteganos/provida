@@ -3,9 +3,6 @@ import asyncio
 from src.app.scheduler_service import SchedulerService
 from src.app.config.logging_config import setup_logging
 
-# Setup logging (will be replaced by setup_logging() call)
-# logging.basicConfig(filename='main.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 def main() -> None:
     """
     Main function to run the application, including the scheduler.
