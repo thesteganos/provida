@@ -1,10 +1,10 @@
-import json
 import logging
+from typing import Dict, Any, List
 
 from app.core.llm_provider import llm_provider
 from app.config.settings import settings
 from app.models.research_models import FinalReport
-from typing import Dict, Any, List
+from app.agents.utils import extract_json_from_response
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class SynthesisAgent:
             sources (List[Dict[str, str]]): A list of dictionaries, each containing 'id' and 'content' of the source.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the summary and extracted citations.
+            A FinalReport object.
         """
         # Format sources for the prompt
         formatted_sources = ""
@@ -38,8 +38,9 @@ class SynthesisAgent:
 
         try:
             response = await self.model.generate_content_async(prompt)
-            summary_data = FinalReport(**json.loads(response.text))
+            summary_json = extract_json_from_response(response.text)
+            summary_data = FinalReport(**summary_json)
             return summary_data
-        except Exception as e:
-            print(f"Error generating summary: {e}")
-            return FinalReport(summary="", citations_used=[])
+        except (ValueError, Exception) as e:
+            logger.error(f"Error generating summary: {e}", exc_info=True)
+            return FinalReport(summary="Error generating summary.", citations_used=[])

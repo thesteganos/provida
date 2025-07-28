@@ -1,5 +1,5 @@
 """Utilidades de busca na web."""
-
+import logging
 from src.app.tools.brave_search import BraveSearch
 from src.app.tools.pubmed_search import PubMedSearch
 from src.app.config.settings import settings
@@ -39,7 +39,7 @@ async def search_web(
     if any(t in lowered for t in FORBIDDEN_TOPICS) and not any(
         a in lowered for a in topics
     ):
-        query = "cirurgia bariátrica e tratamento da obesidade"
+        logging.warning(f"A consulta '{query}' pode estar fora do escopo. Executando a busca mesmo assim.")
 
     if search_type == "academic":
         pubmed_search = PubMedSearch()
