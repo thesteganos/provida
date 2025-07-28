@@ -97,11 +97,15 @@ class LoggingSettings(BaseModel):
     file_output: FileOutputSettings
     system_log: SystemLogSettings
 
+class RagSettings(BaseModel):
+    n_results: int
+
 class GlobalSettings(BaseModel):
     app: AppSettings
     database: DatabaseSettings
     minio: MinioSettings
     google: GoogleSettings
+    rag: RagSettings
     search: SearchSettings
     reporting: ReportingSettings
     automation: AutomationSettings
