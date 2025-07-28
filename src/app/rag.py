@@ -35,8 +35,11 @@ def get_chroma_collection() -> Collection:
         )
         logger.info(f"Conectado com sucesso à coleção '{settings.database.chroma.collection}' do ChromaDB.")
         return collection
+    except chromadb.errors.ChromaError as e:
+        logger.critical(f"Falha ao conectar ou configurar a coleção do ChromaDB: {e}", exc_info=True)
+        raise ConnectionError(f"Não foi possível conectar ao ChromaDB: {e}")
     except Exception as e:
-        logger.critical(f"Falha ao conectar ao ChromaDB: {e}", exc_info=True)
+        logger.critical(f"Um erro inesperado ocorreu ao tentar obter a coleção do ChromaDB: {e}", exc_info=True)
         raise
 
 
@@ -57,7 +60,7 @@ async def perform_rag_query(query: str, detail_level: str = "padrao") -> RagResp
     collection = get_chroma_collection()
 
     # 1. Buscar chunks de documentos relevantes no ChromaDB
-    results = collection.query(query_texts=[query], n_results=5)
+    results = collection.query(query_texts=[query], n_results=settings.rag.n_results)
 
     documents = []
     metadatas = []
@@ -88,7 +91,11 @@ async def perform_rag_query(query: str, detail_level: str = "padrao") -> RagResp
     )
 
     # 3. Chamar o LLM para gerar a síntese
-    model = llm_provider.get_model(settings.models.rag_agent)
-    response = await model.generate_content_async(prompt)
-
-    return RagResponse(summary=response.text, sources=sources)
+    try:
+        model = llm_provider.get_model(settings.models.rag_agent)
+        response = await model.generate_content_async(prompt)
+        return RagResponse(summary=response.text, sources=sources)
+    except Exception as e:
+        logger.error(f"Erro ao gerar a síntese com o LLM para a consulta '{query}': {e}", exc_info=True)
+        # Retorna uma resposta de erro ou levanta uma exceção personalizada
+        raise RuntimeError(f"Falha ao gerar resposta de RAG: {e}")

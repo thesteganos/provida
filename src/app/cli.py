@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import datetime
 from enum import Enum
 from typing import Optional, List
 from pathlib import Path
@@ -18,9 +19,7 @@ from app.models.rag_models import RagResponse
 from app.rag import perform_rag_query
 from app.orchestrator import run_deep_research
 from app.agents.feedback_agent import FeedbackAgent
-from app.reporting.pdf_exporter import PDFExporter
-from app.reporting.docx_exporter import DOCXExporter
-from app.reporting.markdown_exporter import MarkdownExporter
+from app.reporting.utils import export_report_formats
 
 import re
 
@@ -218,8 +217,13 @@ def fast_query(
 
     except ValueError as e:
         console.print(f"[bold red]Erro de Validação:[/bold red] {e}")
+    except ConnectionError as e:
+        console.print(f"[bold red]Erro de Conexão:[/bold red] {e}")
+    except RuntimeError as e:
+        console.print(f"[bold red]Erro de Execução:[/bold red] {e}")
     except Exception as e:
-        console.print(f"[bold red]Ocorreu um erro inesperado:[/bold red]\n{e}")
+        console.print(f"[bold red]Ocorreu um erro inesperado no modo de consulta rápida:[/bold red]\n{e}")
+        logger.error("Erro inesperado no modo de consulta rápida", exc_info=True)
     finally:
         if output_format == OutputFormat.text and response_summary:
             asyncio.run(_prompt_for_feedback(query, response_summary, "RAG"))
@@ -312,53 +316,24 @@ def deep_research(
                 )
                 console.print(citations_panel)
 
-            # Export to PDF
+            # Export to requested formats
+            export_formats = []
             if pdf_output:
-                pdf_exporter = PDFExporter()
-                pdf_report_data = {
-                    "research_question": topic,
-                    "generation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "summary": report_summary,
-                    "citations_used": citations
-                }
-                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                if pdf_exporter.export_report(pdf_report_data, output_filename):
-                    console.print(f"[bold green]Relatório exportado para PDF:[/bold green] {output_filename}")
-                else:
-                    console.print("[bold red]Falha ao exportar relatório para PDF.[/bold red]")
-
-            # Export to DOCX
+                export_formats.append("pdf")
             if docx_output:
-                docx_exporter = DOCXExporter()
-                docx_report_data = {
-                    "research_question": topic,
-                    "generation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "summary": report_summary,
-                    "citations_used": citations
-                }
-                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-                if docx_exporter.export_report(docx_report_data, output_filename):
-                    console.print(f"[bold green]Relatório exportado para DOCX:[/bold green] {output_filename}")
-                else:
-                    console.print("[bold red]Falha ao exportar relatório para DOCX.[/bold red]")
-
-            # Export to Markdown
+                export_formats.append("docx")
             if markdown_output:
-                markdown_exporter = MarkdownExporter()
-                markdown_report_data = {
-                    "research_question": topic,
-                    "generation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "summary": report_summary,
-                    "citations_used": citations
-                }
-                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-                if markdown_exporter.export_report(markdown_report_data, output_filename):
-                    console.print(f"[bold green]Relatório exportado para Markdown:[/bold green] {output_filename}")
-                else:
-                    console.print("[bold red]Falha ao exportar relatório para Markdown.[/bold red]")
+                export_formats.append("markdown")
 
+            if export_formats:
+                export_report_formats(topic, report_summary, citations, export_formats)
+
+    except (ValueError, ConnectionError) as e:
+        console.print(f"[bold red]Erro durante a configuração ou execução da pesquisa:[/bold red] {e}")
+        logger.error(f"Erro de configuração ou conexão na pesquisa profunda: {e}", exc_info=True)
     except Exception as e:
-        console.print(f"[bold red]Ocorreu um erro crítico durante a orquestração:[/bold red]\n{e}")
+        console.print(f"[bold red]Ocorreu um erro crítico durante a orquestração da pesquisa profunda:[/bold red]\n{e}")
+        logger.error("Erro crítico na orquestração da pesquisa profunda", exc_info=True)
     finally:
         if output_format == OutputFormat.text and report_summary:
             asyncio.run(_prompt_for_feedback(topic, report_summary, "Deep Research"))
@@ -371,5 +346,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import datetime # Import datetime here for pdf_output
     main()
