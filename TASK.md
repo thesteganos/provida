@@ -123,8 +123,8 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [ ] **6.2.1:** Criar testes unitários para novas funcionalidades.
   - [ ] **6.2.2:** Atualizar testes existentes conforme necessário.
   - [ ] **6.2.3:** **Completar Testes Pendentes:**
-    - [ ] **6.2.3.1:** Implementar testes para `test_cli.py`.
-    - [ ] **6.2.3.2:** Implementar testes para `test_rag.py`.
+    - [x] **6.2.3.1:** Implementar testes para `test_cli.py`.
+    - [x] **6.2.3.2:** Implementar testes para `test_rag.py`.
   - [ ] **6.2.4:** Expandir a cobertura de testes unitários para todas as funcionalidades novas e existentes.
 
 - [ ] **6.3: Estilo e Convenções**
@@ -177,70 +177,70 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
 
 ### 🔴 Muito Crítico (Impacto Severo na Manutenibilidade, Funcionalidade ou Segurança)
 
-- [ ] **8.1: Eliminar Duplicação de Backends e Frontends**
-  - [ ] **8.1.1:** Remover o diretório `backend/` (incluindo `index.js`, `package.json`, `requirements.txt` e `frontend/`).
+- [x] **8.1: Eliminar Duplicação de Backends e Frontends**
+  - [x] **8.1.1:** Remover o diretório `backend/` (incluindo `index.js`, `package.json`, `requirements.txt` e `frontend/`).
     - **Razão:** O projeto é primariamente Python; o backend Node.js é redundante e o frontend aninhado é uma duplicação.
-  - [ ] **8.1.2:** Remover o diretório `frontend/` (incluindo `src/App.css`, `src/App.js`).
+  - [x] **8.1.2:** Remover o diretório `frontend/` (incluindo `src/App.css`, `src/App.js`).
     - **Razão:** Duplicação de aplicação frontend com `user-interface/`.
-  - [ ] **8.1.3:** Consolidar `user-interface/` como o frontend principal.
+  - [x] **8.1.3:** Consolidar `user-interface/` como o frontend principal.
     - **Razão:** Garantir uma única fonte de verdade para a interface do usuário.
 
-- [ ] **8.2: Consolidar Módulos Python Duplicados**
-  - [ ] **8.2.1:** Remover o diretório `src/pro_vida/` (incluindo `orchestrator.py`, `models.py`, `automation.py`, `config.py`, `agents/research_agent.py`, `tools/web_search.py`, `tests/`).
+- [x] **8.2: Consolidar Módulos Python Duplicados**
+  - [x] **8.2.1:** Remover o diretório `src/pro_vida/` (incluindo `orchestrator.py`, `models.py`, `automation.py`, `config.py`, `agents/research_agent.py`, `tools/web_search.py`, `tests/`).
     - **Razão:** Duplicação de funcionalidades e estrutura de diretórios com `src/app/`.
-  - [ ] **8.2.2:** Remover `src/orchestrator.py` (raiz).
+  - [x] **8.2.2:** Remover `src/orchestrator.py` (raiz).
     - **Razão:** Duplicação de orquestrador com `src/app/orchestrator.py`.
-  - [ ] **8.2.3:** Remover `src/settings.py` (raiz).
+  - [x] **8.2.3:** Remover `src/settings.py` (raiz).
     - **Razão:** Duplicação de sistema de configuração com `src/app/config/settings.py`.
-  - [ ] **8.2.4:** Remover `src/app/scheduler.py`.
+  - [x] **8.2.4:** Remover `src/app/scheduler.py`.
     - **Razão:** Duplicação de agendador com `src/app/scheduler_service.py`.
-  - [ ] **8.2.5:** Remover `src/core/llm_provider.py` (raiz).
+  - [x] **8.2.5:** Remover `src/core/llm_provider.py` (raiz).
     - **Razão:** Duplicação de provedor de LLM com `src/app/core/llm_provider.py`.
 
-- [ ] **8.3: Eliminar Mocks de Bibliotecas Externas**
-  - [ ] **8.3.1:** Remover o diretório `langgraph/` (incluindo `graph.py`, `__init__.py`).
+- [x] **8.3: Eliminar Mocks de Bibliotecas Externas**
+  - [x] **8.3.1:** Remover o diretório `langgraph/` (incluindo `graph.py`, `__init__.py`).
     - **Razão:** Implementação mock/duplicada da biblioteca `langgraph` oficial.
-  - [ ] **8.3.2:** Remover o diretório `google/` (incluindo `generativeai.py`, `__init__.py`).
+  - [x] **8.3.2:** Remover o diretório `google/` (incluindo `generativeai.py`, `__init__.py`).
     - **Razão:** Implementação mock/duplicada da biblioteca `google-generativeai` oficial.
 
-- [ ] **8.4: Consolidar Documentação de Escopo**
-  - [ ] **8.4.1:** Consolidar `provida.md` e `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` em um único documento de arquitetura (ex: `ARCHITECTURE.md` ou `PROJECT_SCOPE.md`). Caso duvida ou sugestão, pergunte ao usuário.
+- [x] **8.4: Consolidar Documentação de Escopo**
+  - [x] **8.4.1:** Consolidar `provida.md` e `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` em um único documento de arquitetura (ex: `ARCHITECTURE.md` ou `PROJECT_SCOPE.md`).
     - **Razão:** Evitar inconsistências e ter uma única fonte de verdade para a arquitetura do projeto.
 
-- [ ] **8.5: Implementar Testes Críticos Ausentes**
-  - [ ] **8.5.1:** Implementar testes de integração abrangentes para `test_cli.py`.
+- [x] **8.5: Implementar Testes Críticos Ausentes**
+  - [x] **8.5.1:** Implementar testes de integração abrangentes para `test_cli.py`.
     - **Razão:** Testes cruciais para a funcionalidade da CLI estão ausentes.
-  - [ ] **8.5.2:** Implementar testes de unidade abrangentes para `test_rag.py`.
+  - [x] **8.5.2:** Implementar testes de unidade abrangentes para `test_rag.py`.
     - **Razão:** Testes cruciais para a lógica central de RAG estão ausentes.
 
-- [ ] **8.6: Refatorar Modelos de Configuração Pydantic**
-  - [ ] **8.6.1:** Refatorar `src/app/config/settings.py` para espelhar a estrutura ideal do `config.yaml` e garantir consistência em `DatabaseSettings`.
+- [x] **8.6: Refatorar Modelos de Configuração Pydantic**
+  - [x] **8.6.1:** Refatorar `src/app/config/settings.py` para espelhar a estrutura ideal do `config.yaml` e garantir consistência em `DatabaseSettings`.
     - **Razão:** Inconsistência na estrutura de configuração e duplicação de modelos.
-  - [ ] **8.6.2:** Remover `config_models.py`.
+  - [x] **8.6.2:** Remover `config_models.py`.
     - **Razão:** Duplicação de modelos Pydantic de configuração.
 
-- [ ] **8.7: Desmockar Funcionalidades Essenciais**
-  - [ ] **8.7.1:** Desmockar e integrar o `ResearchAgent` em `src/app/agents/knowledge_curation_agent.py`.
+- [x] **8.7: Desmockar Funcionalidades Essenciais**
+  - [x] **8.7.1:** Desmockar e integrar o `ResearchAgent` em `src/app/agents/knowledge_curation_agent.py`.
     - **Razão:** Funcionalidade central de autonomia está mockada.
-  - [ ] **8.7.2:** Desmockar o `plan_node` em `src/app/orchestrator_graph.py`.
+  - [x] **8.7.2:** Desmockar o `plan_node` em `src/app/orchestrator_graph.py`.
     - **Razão:** Funcionalidade central de planejamento está mockada.
 
 ### 🔴 Crítico (Impacto Significativo na Manutenibilidade, Performance ou Bugs)
 
-- [ ] **8.8: Assincronicidade em Ferramentas de Busca**
-  - [ ] **8.8.1:** Refatorar `src/app/tools/pubmed_search.py` para ser totalmente assíncrono.
+- [x] **8.8: Assincronicidade em Ferramentas de Busca**
+  - [x] **8.8.1:** Refatorar `src/app/tools/pubmed_search.py` para ser totalmente assíncrono.
     - **Razão:** Chamadas síncronas bloqueiam o loop de eventos assíncrono.
-  - [ ] **8.8.2:** Refatorar `src/app/tools/web_search.py` para ser totalmente assíncrono.
+  - [x] **8.8.2:** Refatorar `src/app/tools/web_search.py` para ser totalmente assíncrono.
     - **Razão:** Chamadas síncronas bloqueiam o loop de eventos assíncrono.
 
-- [ ] **8.9: Validação de Entrada e Saída com Pydantic**
-  - [ ] **8.9.1:** Implementar validação Pydantic para entrada e saída em `src/app/agents/feedback_agent.py`.
+- [x] **8.9: Validação de Entrada e Saída com Pydantic**
+  - [x] **8.9.1:** Implementar validação Pydantic para entrada e saída em `src/app/agents/feedback_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.2:** Implementar validação Pydantic para entrada e saída em `src/app/agents/verification_agent.py`.
+  - [x] **8.9.2:** Implementar validação Pydantic para entrada e saída em `src/app/agents/verification_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.3:** Implementar validação Pydantic para entrada e saída em `src/app/agents/claim_extraction_agent.py`.
+  - [x] **8.9.3:** Implementar validação Pydantic para entrada e saída em `src/app/agents/claim_extraction_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.4:** Implementar validação Pydantic para entrada e saída em `src/app/agents/analysis_agent.py`.
+  - [x] **8.9.4:** Implementar validação Pydantic para entrada e saída em `src/app/agents/analysis_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
   - [ ] **8.9.5:** Implementar validação Pydantic para entrada e saída em `src/app/agents/synthesis_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
