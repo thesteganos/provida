@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, TypedDict
+from typing import Any, Dict, List, TypedDict, Optional
 
 from langgraph.graph import END, StateGraph
 
@@ -25,6 +25,7 @@ class ResearchState(TypedDict):
     analyzed_data: List[Dict[str, Any]]
     final_report: Dict[str, Any]
     verification_report: Dict[str, Any]
+    search_limit: Optional[int] # Add search_limit to ResearchState
 
 
 # --- Nós do Grafo ---
@@ -33,21 +34,27 @@ class ResearchState(TypedDict):
 def plan_node(state: ResearchState) -> Dict[str, Any]:
     """
     Nó responsável por gerar o plano de pesquisa.
-    (Implementação mockada para este exemplo)
     """
     logger.info(f"Gerando plano de pesquisa para o tópico: {state['topic']}")
-    # Em uma implementação real, chamaria o PlanningAgent
-    # planning_agent = PlanningAgent()
-    # plan = planning_agent.generate_research_plan(state['topic'])
-    plan = {"plan": [{"step": "Analisar dados iniciais"}]}
-    # Mock de dados coletados para o próximo passo
-    collected_data = [
-        {
-            "source_identifier": "https://example.com/artigo1",
-            "content": "A vitamina D é crucial para a absorção de cálcio.",
-        }
-    ]
-    return {"research_plan": plan, "collected_data": collected_data}
+    planning_agent = PlanningAgent()
+    # A chamada ao PlanningAgent deve ser assíncrona, então o nó também deve ser assíncrono.
+    # Para manter a compatibilidade com a estrutura atual do LangGraph (que espera nós síncronos aqui),
+    # vamos usar asyncio.run() para este mock, mas o ideal é que o nó seja async.
+    # No entanto, o LangGraph permite nós assíncronos se o grafo for invocado com ainvoke.
+    # Para este contexto, assumimos que o grafo será invocado de forma a suportar nós assíncronos.
+    # Se o grafo for invocado de forma síncrona, esta chamada precisaria ser envolvida em asyncio.run()
+    # ou o nó precisaria ser síncrono e o PlanningAgent.generate_research_plan síncrono.
+    # Para fins de desmocking, vamos assumir que o ambiente suporta o await aqui.
+    plan_data = asyncio.run(planning_agent.generate_research_plan(state['topic']))
+
+    # collected_data será preenchido por um nó de coleta de dados real posteriormente.
+    # Por enquanto, inicializamos como vazio.
+    collected_data = []
+
+    current_search_limit = state.get('search_limit')
+    logger.info(f"Limite de busca para esta execução: {current_search_limit if current_search_limit is not None else 'padrão do sistema'}")
+
+    return {"research_plan": plan_data, "collected_data": collected_data}
 
 
 async def analysis_node(state: ResearchState) -> Dict[str, Any]:

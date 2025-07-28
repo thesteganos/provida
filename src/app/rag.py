@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from functools import lru_cache
+from typing import Optional
 
 import chromadb
 from chromadb.types import Collection
@@ -39,12 +40,13 @@ def get_chroma_collection() -> Collection:
         raise
 
 
-async def perform_rag_query(query: str) -> RagResponse:
+async def perform_rag_query(query: str, detail_level: str = "padrao") -> RagResponse:
     """
     Executa uma consulta RAG completa: busca no ChromaDB e síntese com LLM.
 
     Args:
         query (str): A pergunta do usuário.
+        detail_level (str): Nível de detalhe para o resumo (breve, padrao, detalhado).
 
     Returns:
         RagResponse: Um objeto contendo o resumo e as fontes da resposta.
@@ -69,8 +71,16 @@ async def perform_rag_query(query: str) -> RagResponse:
     context = "\n\n".join(documents)
     sources = list(set(meta.get("source", "Fonte desconhecida") for meta in metadatas if meta))
 
-    # 2. Preparar o prompt para o LLM
+    # 2. Preparar o prompt para o LLM com base no nível de detalhe
+    prompt_instructions = {
+        "breve": "Forneça um resumo muito conciso, com 1-2 frases, focando apenas nos pontos mais importantes.",
+        "padrao": "Forneça um resumo conciso e direto, com 3-5 frases, cobrindo os principais aspectos.",
+        "detalhado": "Forneça um resumo detalhado, com 6-8 frases, incluindo informações mais específicas e nuances."
+    }
+    instruction = prompt_instructions.get(detail_level, prompt_instructions["padrao"])
+
     prompt = f"""Com base nos seguintes trechos de documentos, responda à pergunta do usuário de forma concisa e direta.
+{instruction}
 Pergunta: {query}
 
 Documentos:

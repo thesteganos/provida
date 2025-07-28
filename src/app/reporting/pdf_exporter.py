@@ -1,0 +1,64 @@
+from fpdf import FPDF
+from typing import Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+class PDFExporter:
+    """
+    Classe para exportar relatórios de pesquisa para PDF.
+    """
+    def __init__(self):
+        self.pdf = FPDF()
+        self.pdf.set_auto_page_break(auto=True, margin=15)
+        self.pdf.add_page()
+        self.pdf.set_font("Arial", size=12)
+
+    def add_title(self, title: str):
+        self.pdf.set_font("Arial", 'B', 16)
+        self.pdf.cell(200, 10, txt=title, ln=True, align='C')
+        self.pdf.ln(10)
+
+    def add_section_title(self, title: str):
+        self.pdf.set_font("Arial", 'B', 14)
+        self.pdf.cell(200, 10, txt=title, ln=True, align='L')
+        self.pdf.ln(5)
+
+    def add_text(self, text: str):
+        self.pdf.set_font("Arial", size=12)
+        self.pdf.multi_cell(0, 10, txt=text)
+        self.pdf.ln(5)
+
+    def add_citations(self, citations: List[Dict[str, Any]]):
+        self.add_section_title("Citações Utilizadas")
+        for c in citations:
+            citation_text = f"- [ID: {c.get('id')}] {c.get('sentence_in_summary')}"
+            self.pdf.multi_cell(0, 10, txt=citation_text)
+        self.pdf.ln(5)
+
+    def export_report(self, final_report: Dict[str, Any], output_filename: str = "report.pdf"):
+        """
+        Exporta o relatório final para um arquivo PDF.
+        """
+        logger.info(f"Exportando relatório para PDF: {output_filename}")
+        
+        self.add_title("Relatório de Pesquisa Pró-Vida")
+        self.add_section_title(f"Tópico: {final_report.get('research_question', 'N/A')}")
+        self.add_text(f"Data de Geração: {final_report.get('generation_date', 'N/A')}")
+        self.pdf.ln(10)
+
+        self.add_section_title("Resumo Final")
+        self.add_text(final_report.get('summary', 'Nenhum resumo disponível.'))
+
+        citations = final_report.get('citations_used', [])
+        if citations:
+            self.add_citations(citations)
+
+        try:
+            self.pdf.output(output_filename)
+            logger.info(f"Relatório PDF salvo em {output_filename}")
+            return True
+        except Exception as e:
+            logger.error(f"Erro ao salvar o relatório PDF: {e}", exc_info=True)
+            return False
+

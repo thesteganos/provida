@@ -1,17 +1,30 @@
 import logging
-from src.app.scheduler import run_scheduler
+import asyncio
+from src.app.scheduler_service import SchedulerService
+from src.app.config.logging_config import setup_logging
 
-# Setup logging
-logging.basicConfig(filename='main.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Setup logging (will be replaced by setup_logging() call)
+# logging.basicConfig(filename='main.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main() -> None:
     """
-    Main function to run the scheduler.
+    Main function to run the application, including the scheduler.
     """
-    logging.info("Starting the scheduler...")
-    # Run the scheduler to execute scheduled tasks
-    run_scheduler()
-    logging.info("Scheduler finished.")
+    setup_logging() # Configure logging first
+    logger = logging.getLogger(__name__) # Get logger after configuration
+
+    logger.info("Starting the Provida application...")
+    
+    scheduler_service = SchedulerService()
+    scheduler_service.start()
+
+    try:
+        # Keep the main thread alive to allow scheduled jobs to run
+        # In a real application, this might be part of a web server or other long-running process
+        asyncio.get_event_loop().run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        scheduler_service.shutdown()
+        logger.info("Provida application shut down.")
 
 if __name__ == "__main__":
     main()

@@ -1,23 +1,45 @@
-import logo from './logo.svg';
+import React, { useState } from 'react';
+import axios from 'axios';
 import './App.css';
 
 function App() {
+  const [isAutonomousResearchEnabled, setIsAutonomousResearchEnabled] = useState(false);
+
+  const toggleAutonomousResearch = async () => {
+    try {
+      const response = await axios.post('/api/research/toggle');
+      setIsAutonomousResearchEnabled(!isAutonomousResearchEnabled);
+      alert(response.data.message);
+    } catch (error) {
+      console.error('Error toggling autonomous research:', error);
+      alert('Failed to toggle autonomous research');
+    }
+  };
+
+  const startManualResearch = async () => {
+    try {
+      const response = await axios.post('/api/research/start');
+      alert(response.data.message);
+    } catch (error) {
+      console.error('Error starting manual research:', error);
+      alert('Failed to start manual research');
+    }
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <h1>Autonomia Controlada</h1>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            checked={isAutonomousResearchEnabled}
+            onChange={toggleAutonomousResearch}
+          />
+          Enable Autonomous Research
+        </label>
+      </div>
+      <button onClick={startManualResearch}>Start Manual Research</button>
     </div>
   );
 }
