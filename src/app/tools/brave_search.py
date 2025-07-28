@@ -1,5 +1,5 @@
 import os
-import requests
+import httpx
 
 class BraveSearch:
     def __init__(self):
@@ -12,7 +12,7 @@ class BraveSearch:
             "X-Subscription-Token": self.api_key
         }
 
-    def search(self, query: str, count: int = 10) -> dict:
+    async def search(self, query: str, count: int = 10) -> dict:
         """Performs a search using the Brave Search API.
 
         Args:
@@ -29,11 +29,11 @@ class BraveSearch:
             "q": query,
             "count": count
         }
-        try:
-            response = requests.get("https://api.search.brave.com/res/v1/web/search", headers=self.headers, params=params)
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://api.search.brave.com/res/v1/web/search", headers=self.headers, params=params)
             response.raise_for_status() # Raise an exception for HTTP errors
             return response.json()
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             print(f"Error during Brave Search API call: {e}")
             return {"error": str(e)}
 

@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 class PubMedSearch:
     def __init__(self):
-        self.api_key = settings.entrez_api_key
-        self.email = settings.entrez_email # Assumindo que settings.entrez_email existe
+        self.api_key = os.getenv("ENTREZ_API_KEY")
+        self.email = os.getenv("ENTREZ_EMAIL")
 
         if not self.api_key:
             logger.error("ENTREZ_API_KEY não encontrada nas variáveis de ambiente. É necessária para Entrez.")

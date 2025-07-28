@@ -52,6 +52,7 @@ class ModelsSettings(BaseModel):
     synthesis_agent: Optional[str] = None
     rag_agent: Optional[str] = None
     claim_extraction_agent: Optional[str] = None
+    language_agent: Optional[str] = None
 
 class SearchSettings(BaseModel):
     deep_search_limit: int
@@ -77,7 +78,24 @@ class AutomationSettings(BaseModel):
     interval: int
     daily_update_cron: str
     quarterly_review_cron: str
-    tasks: List[AutomationTask]
+    tasks: Optional[List[AutomationTask]] = None # Make tasks optional
+
+class FileOutputSettings(BaseModel):
+    enabled: bool
+    path: str
+    max_bytes: int
+    backup_count: int
+
+class SystemLogSettings(BaseModel):
+    enabled: bool
+    path: str
+    level: str
+
+class LoggingSettings(BaseModel):
+    level: str
+    console_output: bool
+    file_output: FileOutputSettings
+    system_log: SystemLogSettings
 
 class GlobalSettings(BaseModel):
     app: AppSettings
@@ -87,13 +105,8 @@ class GlobalSettings(BaseModel):
     search: SearchSettings
     reporting: ReportingSettings
     automation: AutomationSettings
-    llm_models: ModelsSettings
-    
-    # Adicionados de config_models.py
-    brave_api_key: Optional[str] = None
-    entrez_email: Optional[str] = None
-    entrez_api_key: Optional[str] = None
-    llm_provider: str = "google"
+    logging: LoggingSettings # Add logging settings
+    llm_models: ModelsSettings # This is already handled in get_settings to be moved here
 
 @lru_cache
 def get_settings() -> GlobalSettings:
@@ -124,6 +137,10 @@ def get_settings() -> GlobalSettings:
     # Mover 'models' de 'search' para 'llm_models'
     if 'search' in processed_config_data and 'models' in processed_config_data['search']:
         processed_config_data['llm_models'] = processed_config_data['search'].pop('models')
+
+    # Handle optional 'tasks' in automation
+    if 'automation' in processed_config_data and 'tasks' not in processed_config_data['automation']:
+        processed_config_data['automation']['tasks'] = None
 
     return GlobalSettings(**processed_config_data)
 

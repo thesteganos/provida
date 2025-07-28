@@ -59,8 +59,13 @@ async def perform_rag_query(query: str, detail_level: str = "padrao") -> RagResp
     # 1. Buscar chunks de documentos relevantes no ChromaDB
     results = collection.query(query_texts=[query], n_results=5)
 
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
+    documents = []
+    metadatas = []
+
+    if results and "documents" in results and len(results["documents"]) > 0:
+        documents = results["documents"][0]
+    if results and "metadatas" in results and len(results["metadatas"]) > 0:
+        metadatas = results["metadatas"][0]
 
     if not documents:
         return RagResponse(
@@ -72,21 +77,15 @@ async def perform_rag_query(query: str, detail_level: str = "padrao") -> RagResp
     sources = list(set(meta.get("source", "Fonte desconhecida") for meta in metadatas if meta))
 
     # 2. Preparar o prompt para o LLM com base no nível de detalhe
-    prompt_instructions = {
-        "breve": "Forneça um resumo muito conciso, com 1-2 frases, focando apenas nos pontos mais importantes.",
-        "padrao": "Forneça um resumo conciso e direto, com 3-5 frases, cobrindo os principais aspectos.",
-        "detalhado": "Forneça um resumo detalhado, com 6-8 frases, incluindo informações mais específicas e nuances."
-    }
-    instruction = prompt_instructions.get(detail_level, prompt_instructions["padrao"])
+    from app.prompts.llm_prompts import RAG_PROMPT_TEMPLATE, RAG_INSTRUCTIONS
 
-    prompt = f"""Com base nos seguintes trechos de documentos, responda à pergunta do usuário de forma concisa e direta.
-{instruction}
-Pergunta: {query}
+    instruction = RAG_INSTRUCTIONS.get(detail_level, RAG_INSTRUCTIONS["padrao"])
 
-Documentos:
-{context}
-
-Resposta:"""
+    prompt = RAG_PROMPT_TEMPLATE.format(
+        instruction=instruction,
+        query=query,
+        context=context
+    )
 
     # 3. Chamar o LLM para gerar a síntese
     model = llm_provider.get_model(settings.models.rag_agent)

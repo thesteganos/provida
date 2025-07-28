@@ -1,13 +1,16 @@
 import logging
+from app.models.verification_models import VerificationReport
+
 from typing import Any, Dict
 
 from app.agents.claim_extraction_agent import ClaimExtractionAgent
 from app.agents.verification_agent import VerificationAgent
+from app.models.verification_models import VerificationReport
 
 logger = logging.getLogger(__name__)
 
 
-async def verify_text_against_kg(text: str) -> Dict[str, Any]:
+async def verify_text_against_kg(text: str) -> VerificationReport:
     """
     Orquestra o processo completo de verificação de fatos de um texto.
 
@@ -23,10 +26,10 @@ async def verify_text_against_kg(text: str) -> Dict[str, Any]:
 
     if not claims:
         logger.info("Nenhuma alegação factual extraída. Verificação concluída.")
-        return {"hallucination_detected": False, "message": "Nenhuma alegação factual para verificar."}
+        return VerificationReport(hallucination_detected=False, message="Nenhuma alegação factual para verificar.")
 
     # Passo 2: Verificar alegações
     verifier = VerificationAgent()
     report = await verifier.bulk_verify(claims)
-    logger.info(f"Verificação concluída. Alegações não verificadas: {report['unverified_count']}")
+    logger.info(f"Verificação concluída. Alegações não verificadas: {report.unverified_count}")
     return report

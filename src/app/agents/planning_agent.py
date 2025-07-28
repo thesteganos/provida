@@ -19,31 +19,9 @@ class PlanningAgent:
         Returns:
             Dict[str, Any]: A dictionary containing the research plan and estimated resources.
         """
-        prompt = f"""Você é um Agente de Planejamento de Pesquisa. Sua tarefa é criar um plano de pesquisa detalhado para o tópico fornecido e estimar os recursos necessários (número de buscas, chamadas de API). O plano deve ser estruturado em etapas claras, com sub-perguntas ou sub-tópicos para cada etapa.
+        from app.prompts.llm_prompts import PLANNING_AGENT_PROMPT
 
-        Tópico da Pesquisa: {topic}
-
-        Formato de Saída (JSON):
-        {{
-            "plan": [
-                {{
-                    "step": "Nome da Etapa",
-                    "description": "Descrição detalhada da etapa",
-                    "sub_questions": [
-                        "Sub-pergunta 1",
-                        "Sub-pergunta 2"
-                    ]
-                }}
-            ],
-            "estimated_resources": {{
-                "num_searches": "Número estimado de buscas na web",
-                "num_api_calls": "Número estimado de chamadas de API (LLM)",
-                "estimated_time_minutes": "Tempo estimado em minutos para completar a pesquisa"
-            }}
-        }}
-
-        Certifique-se de que a saída seja um JSON válido e completo.
-        """
+        prompt = PLANNING_AGENT_PROMPT.format(topic=topic)
 
         try:
             response = await self.model.generate_content_async(prompt)

@@ -1,4 +1,5 @@
 from fpdf import FPDF
+from app.models.research_models import FinalReport
 from typing import Dict, Any, List
 import logging
 
@@ -32,25 +33,29 @@ class PDFExporter:
     def add_citations(self, citations: List[Dict[str, Any]]):
         self.add_section_title("Citações Utilizadas")
         for c in citations:
-            citation_text = f"- [ID: {c.get('id')}] {c.get('sentence_in_summary')}"
+            citation_text = f"- [ID: {c.id}] {c.sentence_in_summary}"
             self.pdf.multi_cell(0, 10, txt=citation_text)
         self.pdf.ln(5)
 
-    def export_report(self, final_report: Dict[str, Any], output_filename: str = "report.pdf"):
+    def export_report(self, final_report: FinalReport, output_filename: str = "report.pdf"):
+        # Ensure final_report is a FinalReport instance
+        if not isinstance(final_report, FinalReport):
+            logger.error("Invalid input: final_report must be an instance of FinalReport.")
+            return False
         """
         Exporta o relatório final para um arquivo PDF.
         """
         logger.info(f"Exportando relatório para PDF: {output_filename}")
         
         self.add_title("Relatório de Pesquisa Pró-Vida")
-        self.add_section_title(f"Tópico: {final_report.get('research_question', 'N/A')}")
-        self.add_text(f"Data de Geração: {final_report.get('generation_date', 'N/A')}")
+        self.add_section_title(f"Tópico: {final_report.research_question}")
+        self.add_text(f"Data de Geração: {final_report.generation_date}")
         self.pdf.ln(10)
 
         self.add_section_title("Resumo Final")
-        self.add_text(final_report.get('summary', 'Nenhum resumo disponível.'))
+        self.add_text(final_report.summary)
 
-        citations = final_report.get('citations_used', [])
+        citations = final_report.citations_used
         if citations:
             self.add_citations(citations)
 

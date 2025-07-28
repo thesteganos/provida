@@ -1,6 +1,8 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, TypedDict, Optional
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+from app.models.research_models import CollectedDataItem, AnalyzedDataItem, FinalReport, VerificationReport
 
 from langgraph.graph import END, StateGraph
 
@@ -13,25 +15,23 @@ from app.services.fact_checking_service import verify_text_against_kg
 logger = logging.getLogger(__name__)
 
 
-class ResearchState(TypedDict):
+class ResearchState(BaseModel):
     """
     Representa o estado do grafo de pesquisa.
     """
-
     topic: str
-    research_plan: Dict[str, Any]
-    # Mock de dados coletados para demonstração
-    collected_data: List[Dict[str, Any]]
-    analyzed_data: List[Dict[str, Any]]
-    final_report: Dict[str, Any]
-    verification_report: Dict[str, Any]
-    search_limit: Optional[int] # Add search_limit to ResearchState
+    research_plan: Dict[str, Any] = Field(default_factory=dict)
+    collected_data: List[CollectedDataItem] = Field(default_factory=list)
+    analyzed_data: List[AnalyzedDataItem] = Field(default_factory=list)
+    final_report: Optional[FinalReport] = None
+    verification_report: Optional[VerificationReport] = None
+    search_limit: Optional[int] = None
 
 
 # --- Nós do Grafo ---
 
 
-def plan_node(state: ResearchState) -> Dict[str, Any]:
+async def plan_node(state: ResearchState) -> Dict[str, Any]:
     """
     Nó responsável por gerar o plano de pesquisa.
     """
@@ -45,11 +45,11 @@ def plan_node(state: ResearchState) -> Dict[str, Any]:
     # Se o grafo for invocado de forma síncrona, esta chamada precisaria ser envolvida em asyncio.run()
     # ou o nó precisaria ser síncrono e o PlanningAgent.generate_research_plan síncrono.
     # Para fins de desmocking, vamos assumir que o ambiente suporta o await aqui.
-    plan_data = asyncio.run(planning_agent.generate_research_plan(state['topic']))
+    plan_data = await planning_agent.generate_research_plan(state['topic'])
 
     # collected_data será preenchido por um nó de coleta de dados real posteriormente.
     # Por enquanto, inicializamos como vazio.
-    collected_data = []
+    collected_data: List[CollectedDataItem] = []
 
     current_search_limit = state.get('search_limit')
     logger.info(f"Limite de busca para esta execução: {current_search_limit if current_search_limit is not None else 'padrão do sistema'}")
@@ -71,7 +71,7 @@ async def analysis_node(state: ResearchState) -> Dict[str, Any]:
 
     # Combina o resultado da análise com o identificador da fonte
     analyzed_data = [
-        {"source_identifier": item["source_identifier"], "analysis": result}
+        AnalyzedDataItem(source_identifier=item["source_identifier"], analysis=result)
         for item, result in zip(state["collected_data"], analysis_results)
     ]
     return {"analyzed_data": analyzed_data}
@@ -117,7 +117,7 @@ async def synthesis_node(state: ResearchState) -> Dict[str, Any]:
         research_question=state["topic"],
         sources=sources_for_citation,
     )
-    return {"final_report": report}
+    return {"final_report": FinalReport(**report)}
 
 
 async def fact_check_node(state: ResearchState) -> Dict[str, Any]:
@@ -132,7 +132,7 @@ async def fact_check_node(state: ResearchState) -> Dict[str, Any]:
         return {"verification_report": {"hallucination_detected": False, "message": "No summary to check."}}
 
     report = await verify_text_against_kg(summary_text)
-    return {"verification_report": report}
+    return {"verification_report": VerificationReport(**report)}
 
 
 def build_research_graph():

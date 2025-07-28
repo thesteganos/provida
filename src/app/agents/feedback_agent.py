@@ -30,32 +30,12 @@ class FeedbackAgent:
         Returns:
             StructuredFeedback: Feedback estruturado (ex: sentimento, precisão, sugestões).
         """
-        prompt = f"""Você é um Agente de Feedback. Sua tarefa é analisar o feedback do usuário e o contexto da interação para extrair informações estruturadas.
+        from app.prompts.llm_prompts import FEEDBACK_AGENT_PROMPT
 
-Contexto da Interação:
-{context.model_dump_json(indent=2)}
-
-Feedback do Usuário:
-{user_feedback}
-
-Extraia as seguintes informações em formato JSON:
-- 'sentiment': Sentimento geral do feedback (positivo, negativo, neutro). Use apenas 'positivo', 'negativo' ou 'neutro'.
-- 'accuracy_rating': Avaliação da precisão da resposta (escala de 1 a 5, onde 5 é muito preciso). Use um número inteiro.
-- 'suggestions': Sugestões de melhoria ou novas funcionalidades (lista de strings). Use um array de strings.
-- 'relevant_query': A query original à qual o feedback se refere (se identificável). Use uma string ou null.
-- 'relevant_agent': O agente principal ao qual o feedback se refere (se identificável, ex: 'RAG', 'Deep Research'). Use uma string ou null.
-
-Formato de Saída (JSON):
-{{
-    "sentiment": "positivo",
-    "accuracy_rating": 4,
-    "suggestions": ["sugestao1", "sugestao2"],
-    "relevant_query": "query_original",
-    "relevant_agent": "nome_do_agente"
-}}
-
-Se alguma informação não for aplicável ou identificável, use 'null' ou uma lista vazia para 'suggestions'.
-"""
+        prompt = FEEDBACK_AGENT_PROMPT.format(
+            context_json=context.model_dump_json(indent=2),
+            user_feedback=user_feedback
+        )
 
         try:
             response = await self.model.generate_content_async(prompt)

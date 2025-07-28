@@ -97,3 +97,61 @@ async def test_perform_rag_query_llm_error(mock_chroma_collection, mock_llm_prov
             query = "teste erro llm"
             with pytest.raises(Exception, match="Erro na API do LLM"):
                 await perform_rag_query(query)
+
+@pytest.mark.asyncio
+async def test_get_chroma_collection_cached():
+    # Clear the cache before the test to ensure a fresh start
+    get_chroma_collection.cache_clear()
+
+    with patch('chromadb.HttpClient') as mock_http_client:
+        mock_client_instance = MagicMock()
+        mock_http_client.return_value = mock_client_instance
+        mock_client_instance.get_or_create_collection.return_value = MagicMock()
+
+        # Call twice to ensure caching
+        collection1 = get_chroma_collection()
+        collection2 = get_chroma_collection()
+
+        # Assert that HttpClient is called only once, confirming caching
+        mock_http_client.assert_called_once()
+        assert collection1 is collection2
+
+@pytest.mark.asyncio
+async def test_get_chroma_collection_connection_error():
+    with patch('chromadb.HttpClient', side_effect=Exception("Falha na conexão HTTP")):
+        with pytest.raises(Exception, match="Falha na conexão HTTP"):
+            # Clear cache before testing connection error
+            get_chroma_collection.cache_clear()
+            get_chroma_collection()
+
+@pytest.mark.asyncio
+async def test_perform_rag_query_sources_with_missing_metadata(mock_chroma_collection, mock_llm_provider):
+    mock_chroma_collection.query.return_value = {
+        "documents": [["chunk1", "chunk2"]],
+        "metadatas": [[{"source": "ArtigoA.pdf"}, {}]] # Um metadata sem 'source'
+    }
+
+    with patch('src.app.rag.get_chroma_collection', return_value=mock_chroma_collection):
+        with patch('src.app.rag.llm_provider', mock_llm_provider):
+            query = "query com metadata faltando"
+            response = await perform_rag_query(query)
+
+            assert isinstance(response, RagResponse)
+            assert "ArtigoA.pdf" in response.sources
+            assert "Fonte desconhecida" in response.sources # Deve incluir a fonte desconhecida
+
+@pytest.mark.asyncio
+async def test_perform_rag_query_sources_with_empty_metadata(mock_chroma_collection, mock_llm_provider):
+    mock_chroma_collection.query.return_value = {
+        "documents": [["chunk1"]],
+        "metadatas": [[None]] # Metadata é None
+    }
+
+    with patch('src.app.rag.get_chroma_collection', return_value=mock_chroma_collection):
+        with patch('src.app.rag.llm_provider', mock_llm_provider):
+            query = "query com metadata None"
+            response = await perform_rag_query(query)
+
+            assert isinstance(response, RagResponse)
+            assert "Fonte desconhecida" in response.sources
+            assert len(response.sources) == 1

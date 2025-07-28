@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 import typer
+import asyncio_typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -21,12 +22,30 @@ from app.reporting.pdf_exporter import PDFExporter
 from app.reporting.docx_exporter import DOCXExporter
 from app.reporting.markdown_exporter import MarkdownExporter
 
+import re
+
+def _slugify(text: str) -> str:
+    """
+    Converte uma string em um slug URL-friendly.
+    """
+    text = re.sub(r'[^
+\w\s-]', '', text).strip().lower()
+    text = re.sub(r'[-\s]+', '_', text)
+    return text
+
 # Inicializa o Typer e o Rich Console
 app = typer.Typer(
     name="provida",
     help="Pró-Vida: Assistente de Pesquisa Autônomo para Cirurgia Bariátrica.",
     add_completion=False,
 )
+
+automation_app = typer.Typer(
+    name="automation",
+    help="Gerencia as tarefas autônomas de curadoria de conhecimento."
+)
+app.add_typer(automation_app)
+
 console = Console()
 logger = logging.getLogger(__name__)
 
@@ -57,7 +76,8 @@ def _format_text_for_display(text_content: str, max_lines: Optional[int] = None,
     formatted_text = Text(truncated_text, justify="left")
 
     if highlight_keywords:
-        keywords = [k.strip() for k in highlight_keywords.split(',') if k.strip()]
+        import re
+        keywords = [re.escape(k.strip()) for k in highlight_keywords.split(',') if k.strip()]
         for keyword in keywords:
             formatted_text.highlight_regex(f"\\b{keyword}\\b", "bold yellow reverse")
 
@@ -101,6 +121,37 @@ def _write_config_to_yaml(updated_settings: GlobalSettings):
     except Exception as e:
         console.print(f"[bold red]Erro ao salvar configurações: {e}[/bold red]")
         logger.error(f"Erro ao salvar configurações: {e}", exc_info=True)
+
+
+@automation_app.command("enable")
+def automation_enable():
+    """Ativa a execução de tarefas autônomas."""
+    current_settings = get_settings()
+    current_settings.automation.enabled = True
+    _write_config_to_yaml(current_settings)
+    console.print("[bold green]Automação ativada.[/bold green]")
+
+@automation_app.command("disable")
+def automation_disable():
+    """Desativa a execução de tarefas autônomas."""
+    current_settings = get_settings()
+    current_settings.automation.enabled = False
+    _write_config_to_yaml(current_settings)
+    console.print("[bold red]Automação desativada.[/bold red]")
+
+@automation_app.command("set-cron")
+def automation_set_cron(
+    daily: str = typer.Option(..., help="Cron string para atualização diária (ex: '0 5 * * *')."),
+    quarterly: str = typer.Option(..., help="Cron string para revisão trimestral (ex: '0 6 1 */3 *')."),
+):
+    """Define os horários de execução das tarefas autônomas usando cron strings."""
+    current_settings = get_settings()
+    current_settings.automation.daily_update_cron = daily
+    current_settings.automation.quarterly_review_cron = quarterly
+    _write_config_to_yaml(current_settings)
+    console.print("[bold green]Horários de cron atualizados.[/bold green]")
+    console.print(f"  Atualização Diária: [cyan]{daily}[/cyan]")
+    console.print(f"  Revisão Trimestral: [cyan]{quarterly}[/cyan]")
 
 
 @app.command(name="rapida")
@@ -175,6 +226,7 @@ def fast_query(
 
 
 @app.command(name="profunda")
+@asyncio_typer.wrap_async()
 def deep_research(
     topic: str = typer.Argument(..., help="O tópico para a pesquisa profunda."),
     search_limit: Optional[int] = typer.Option(
@@ -227,7 +279,7 @@ def deep_research(
     report_summary = ""
     try:
         with console.status(f"[bold green]Executando Pesquisa Profunda sobre: '[cyan]{topic}[/cyan]\'...", spinner="dots"):
-            final_state = run_deep_research(topic, search_limit)
+            final_state = await run_deep_research(topic, search_limit)
 
             if output_format == OutputFormat.json:
                 console.print(json.dumps(final_state, indent=2, default=str))
@@ -269,7 +321,7 @@ def deep_research(
                     "summary": report_summary,
                     "citations_used": citations
                 }
-                output_filename = f"relatorio_{topic.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 if pdf_exporter.export_report(pdf_report_data, output_filename):
                     console.print(f"[bold green]Relatório exportado para PDF:[/bold green] {output_filename}")
                 else:
@@ -284,7 +336,7 @@ def deep_research(
                     "summary": report_summary,
                     "citations_used": citations
                 }
-                output_filename = f"relatorio_{topic.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
                 if docx_exporter.export_report(docx_report_data, output_filename):
                     console.print(f"[bold green]Relatório exportado para DOCX:[/bold green] {output_filename}")
                 else:
@@ -299,7 +351,7 @@ def deep_research(
                     "summary": report_summary,
                     "citations_used": citations
                 }
-                output_filename = f"relatorio_{topic.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+                output_filename = f"relatorio_{_slugify(topic)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
                 if markdown_exporter.export_report(markdown_report_data, output_filename):
                     console.print(f"[bold green]Relatório exportado para Markdown:[/bold green] {output_filename}")
                 else:

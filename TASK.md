@@ -70,7 +70,7 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [x] **4.1.1:** Implementar o `KnowledgeCurationAgent` (nova classe/módulo).
   - [x] **4.1.2:** Implementar a lógica para atualização autônoma do grafo de conhecimento dentro do `KnowledgeCurationAgent`.
 
-- [ ] **4.2: Agendamento de Tarefas**
+- [x] **4.2: Agendamento de Tarefas**
   - [x] **4.2.1:** Implementar o agendamento de tarefas com `APScheduler` ou similar.
   - [x] **4.2.2:** Configurar a execução diária da curadoria de conhecimento usando o agendador.
 
@@ -80,16 +80,16 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
 
 ## Fase 5: Interface do Usuário e Funcionalidades Adicionais
 
-- [ ] **5.1: Melhorias na CLI**
+- [x] **5.1: Melhorias na CLI**
   - [x] **5.1.1:** Adicionar opções na CLI para configurar limites de busca para o modo "Pesquisa Profunda".
   - [x] **5.1.2:** Adicionar opções na CLI para selecionar níveis de detalhe para resumos em 'Consultas Rápidas'.
   - [x] **5.1.3:** Melhorar a apresentação dos resultados na CLI (ex: paginação, filtros).
 
-- [ ] **5.2: Agente de Feedback**
+- [x] **5.2: Agente de Feedback**
   - [x] **5.2.1:** Implementar o `FeedbackAgent` (nova classe/módulo).
   - [x] **5.2.2:** Coletar feedback estruturado do usuário para refinar a memória dos agentes.
 
-- [ ] **5.3: Exportação de Relatórios**
+- [x] **5.3: Exportação de Relatórios**
   - [x] **5.3.1:** Implementar a exportação de relatórios para PDF.
   - [x] **5.3.2:** Implementar a exportação de relatórios para DOCX.
   - [x] **5.3.3:** Implementar a exportação de relatórios para Markdown.
@@ -97,10 +97,10 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
 - [x] **5.4: Configurações de Pesquisa (UI/CLI)**
   - [x] **5.4.1:** Implementar interface (CLI ou UI) para ajustar o limite de buscas para o modo "Pesquisa Profunda".
 
-- [ ] **5.5: Configurações de Automação (UI/CLI)**
-  - [ ] **5.5.1:** Implementar interface (CLI ou UI) para ativar/desativar e configurar o agendamento da tarefa autônoma.
+- [x] **5.5: Configurações de Automação (UI/CLI)**
+  - [x] **5.5.1:** Implementar interface (CLI ou UI) para ativar/desativar e configurar o agendamento da tarefa autônoma.
 
-- [ ] **5.6: Configurações de Relatório (UI/CLI)**
+- [x] **5.6: Configurações de Relatório (UI/CLI)**
   - [x] **5.6.1:** Implementar interface (CLI ou UI) para selecionar o formato de exportação padrão (PDF, DOCX, Markdown).
 
 - [ ] **5.7: Configurações de Modelos (LLM) (UI/CLI)**
@@ -114,15 +114,15 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [ ] **6.1.1:** Garantir que nenhum arquivo ultrapasse 500 linhas de código (refatorar se necessário).
   - [x] **6.1.2:** Organizar o código em módulos separados por funcionalidade ou responsabilidade.
   - [ ] **6.1.3:** **Consolidar Duplicação de Código:**
-    - [ ] **6.1.3.1:** Unificar `ResearchAgent` e `web_search` entre `src/app/` e `src/pro_vida/`.
-    - [ ] **6.1.3.2:** Padronizar o carregamento de configurações, removendo duplicações (`src/core/llm_provider.py` vs `src/app/core/llm_provider.py`, `config_models.py` vs `src/pro_vida/config/settings.py`).
-    - [ ] **6.1.3.3:** Resolver a duplicação das aplicações frontend (`backend/frontend/` e `user-interface/`).
-  - [ ] **6.1.4:** Mover `neo4j_manager.py` para `src/app/core/db/` para consistência na estrutura de diretórios.
+    - [x] **6.1.3.1:** Unificar `ResearchAgent` e `web_search` entre `src/app/` e `src/pro_vida/`.
+    - [x] **6.1.3.2:** Padronizar o carregamento de configurações, removendo duplicações (`src/core/llm_provider.py` vs `src/app/core/llm_provider.py`, `config_models.py` vs `src/pro_vida/config/settings.py`).
+    - [x] **6.1.3.3:** Resolver a duplicação das aplicações frontend (`backend/frontend/` e `user-interface/`).
+  - [x] **6.1.4:** Mover `neo4j_manager.py` para `src/app/core/db/` para consistência na estrutura de diretórios.
 
 - [ ] **6.2: Testes e Confiabilidade**
   - [ ] **6.2.1:** Criar testes unitários para novas funcionalidades.
   - [ ] **6.2.2:** Atualizar testes existentes conforme necessário.
-  - [ ] **6.2.3:** **Completar Testes Pendentes:**
+  - [x] **6.2.3:** **Completar Testes Pendentes:**
     - [x] **6.2.3.1:** Implementar testes para `test_cli.py`.
     - [x] **6.2.3.2:** Implementar testes para `test_rag.py`.
   - [ ] **6.2.4:** Expandir a cobertura de testes unitários para todas as funcionalidades novas e existentes.
@@ -133,11 +133,11 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [ ] **6.3.3:** Escrever docstrings para todas as funções usando o estilo Google.
   - [ ] **6.3.4:** Adicionar comentários `# Reason:` para explicar a lógica complexa.
 
-- [ ] **6.4: Documentação e Explicabilidade**
+- [x] **6.4: Documentação e Explicabilidade**
   - [x] **6.4.1:** Atualizar `README.md` com novas funcionalidades, alterações de dependências ou etapas de setup.
   - [ ] **6.4.2:** Comentar código não óbvio e garantir que tudo seja compreensível para um desenvolvedor médio.
-  - [ ] **6.4.3:** **Melhorar Gerenciamento de Prompts:**
-    - [ ] **6.4.3.1:** Externalizar prompts de LLM para um módulo ou arquivo de configuração dedicado.
+  - [x] **6.4.3:** **Melhorar Gerenciamento de Prompts:**
+    - [x] **6.4.3.1:** Externalizar prompts de LLM para um módulo ou arquivo de configuração dedicado.
 
 ## Fase 7: Configuração e Instalação
 
@@ -157,8 +157,8 @@ Este arquivo descreve as tarefas de desenvolvimento para o projeto Pró-Vida, di
   - [x] Implementar a leitura do `config.yaml` para alocação de modelos.
   - [x] Permitir a seleção de modelos diferentes para cada agente/tarefa.
 
-- [ ] **7.5: Detecção de Idioma e Tradução**
-  - [ ] **7.5.1:** Implementar a detecção de idioma e tradução de textos não em português usando o modelo Gemini 2.5 Flash-Lite.
+- [x] **7.5: Detecção de Idioma e Tradução**
+  - [x] **7.5.1:** Implementar a detecção de idioma e tradução de textos não em português usando o modelo Gemini 2.5 Flash-Lite.
 
 - [ ] **7.6: Interface do Usuário**
   - [ ] **7.6.1:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais.
@@ -204,7 +204,7 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
     - **Razão:** Implementação mock/duplicada da biblioteca `google-generativeai` oficial.
 
 - [x] **8.4: Consolidar Documentação de Escopo**
-  - [x] **8.4.1:** Consolidar `provida.md` e `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` em um único documento de arquitetura (ex: `ARCHITECTURE.md` ou `PROJECT_SCOPE.md`).
+  - [x] **8.4.1:** Consolidar `provida.md` e `PROJETO_PRO-VIDA_ESCOPO_FINAL.md` em um único documento de arquitetura (ex: `ARCHITECTURE.md` ou `PROJECT_SCOPE.md`). Caso duvida ou sugestão, pergunte ao usuário.
     - **Razão:** Evitar inconsistências e ter uma única fonte de verdade para a arquitetura do projeto.
 
 - [x] **8.5: Implementar Testes Críticos Ausentes**
@@ -242,13 +242,13 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
     - **Razão:** Aumentar robustez e consistência dos dados.
   - [x] **8.9.4:** Implementar validação Pydantic para entrada e saída em `src/app/agents/analysis_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.5:** Implementar validação Pydantic para entrada e saída em `src/app/agents/synthesis_agent.py`.
+  - [x] **8.9.5:** Implementar validação Pydantic para entrada e saída em `src/app/agents/synthesis_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.6:** Implementar validação Pydantic para entrada em `src/app/agents/knowledge_graph_agent.py`.
+  - [x] **8.9.6:** Implementar validação Pydantic para entrada em `src/app/agents/knowledge_graph_agent.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.7:** Implementar validação Pydantic para entrada e saída em `fact_checking_service.py`.
+  - [x] **8.9.7:** Implementar validação Pydantic para entrada e saída em `fact_checking_service.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
-  - [ ] **8.9.8:** Implementar validação Pydantic para entrada em `src/app/reporting/markdown_exporter.py`, `src/app/reporting/docx_exporter.py`, `src/app/reporting/pdf_exporter.py`.
+  - [x] **8.9.8:** Implementar validação Pydantic para entrada em `src/app/reporting/markdown_exporter.py`, `src/app/reporting/docx_exporter.py`, `src/app/reporting/pdf_exporter.py`.
     - **Razão:** Aumentar robustez e consistência dos dados.
 
 - [ ] **8.10: Tratamento de Erros Robusto**
@@ -289,44 +289,44 @@ Esta fase aborda problemas críticos de duplicação, inconsistência e melhoria
   - [ ] **8.13.8:** Substituir `user-interface/README.md` por um README específico do projeto.
     - **Razão:** Documentação clara para o frontend.
 
-- [ ] **8.14: Integração das Diretrizes de Prompt no Código**
-  - [ ] **8.14.1:** Externalizar prompts de LLM em `src/app/agents/feedback_agent.py`, `src/app/rag.py`, `src/app/agents/planning_agent.py`, `src/app/agents/synthesis_agent.py`, `src/app/agents/claim_extraction_agent.py`, `src/app/agents/analysis_agent.py`.
+- [x] **8.14: Integração das Diretrizes de Prompt no Código**
+  - [x] **8.14.1:** Externalizar prompts de LLM em `src/app/agents/feedback_agent.py`, `src/app/rag.py`, `src/app/agents/planning_agent.py`, `src/app/agents/synthesis_agent.py`, `src/app/agents/claim_extraction_agent.py`, `src/app/agents/analysis_agent.py`.
     - **Razão:** Manutenibilidade, versionamento e aplicação consistente das diretrizes de prompt da Seção 10 do documento de escopo.
 
-- [ ] **8.15: Formalizar Linguagem de Regras**
-  - [ ] **8.15.1:** Refatorar `src/app/autonomous_decision_maker.py` para usar uma linguagem de regras mais robusta e escalável (ex: objetos JSON para condições e ações).
+- [x] **8.15: Formalizar Linguagem de Regras**
+  - [x] **8.15.1:** Refatorar `src/app/autonomous_decision_maker.py` para usar uma linguagem de regras mais robusta e escalável (ex: objetos JSON para condições e ações).
     - **Razão:** A implementação atual é frágil e não escalável.
-  - [ ] **8.15.2:** Formalizar a linguagem de regras em `src/config/rules.json` (ex: usando um esquema JSON).
+  - [x] **8.15.2:** Formalizar a linguagem de regras em `src/config/rules.json` (ex: usando um esquema JSON).
     - **Razão:** Garantir consistência e validade das regras.
 
 ### 🟡 Prioritário (Melhorias na Qualidade de Código, Robustez ou UX)
 
-- [ ] **8.16: Melhorias na CLI**
-  - [ ] **8.16.1:** Robustez do `highlight_keywords` em `src/app/cli.py` (escapar caracteres especiais).
+- [x] **8.16: Melhorias na CLI**
+  - [x] **8.16.1:** Robustez do `highlight_keywords` em `src/app/cli.py` (escapar caracteres especiais).
     - **Razão:** Prevenir erros com regex.
-  - [ ] **8.16.2:** Geração de nomes de arquivo para relatórios em `src/app/cli.py` (usar "slugification" mais robusta).
+  - [x] **8.16.2:** Geração de nomes de arquivo para relatórios em `src/app/cli.py` (usar "slugification" mais robusta).
     - **Razão:** Robustez na criação de arquivos.
 
-- [ ] **8.17: Robustez na Extração de Dados**
-  - [ ] **8.17.1:** Melhorar a robustez na extração de `documents` e `metadatas` em `src/app/rag.py`.
+- [x] **8.17: Robustez na Extração de Dados**
+  - [x] **8.17.1:** Melhorar a robustez na extração de `documents` e `metadatas` em `src/app/rag.py`.
     - **Razão:** Prevenir erros se a estrutura de retorno do ChromaDB mudar.
 
-- [ ] **8.18: Consistência na `ResearchState`**
-  - [ ] **8.18.1:** Usar modelos Pydantic para `collected_data`, `analyzed_data`, `final_report` e `verification_report` em `src/app/orchestrator_graph.py` e `src/app/orchestrator.py`.
+- [x] **8.18: Consistência na `ResearchState`**
+  - [x] **8.18.1:** Usar modelos Pydantic para `collected_data`, `analyzed_data`, `final_report` e `verification_report` em `src/app/orchestrator_graph.py` e `src/app/orchestrator.py`.
     - **Razão:** Garantir validação e tipagem forte em todo o workflow.
 
-- [ ] **8.19: Implementar Funcionalidades Pendentes**
-  - [ ] **8.19.1:** Implementar `perform_quarterly_review` e `bootstrap_knowledge` em `src/app/agents/knowledge_curation_agent.py`.
+- [x] **8.19: Implementar Funcionalidades Pendentes**
+  - [x] **8.19.1:** Implementar `perform_quarterly_review` e `bootstrap_knowledge` em `src/app/agents/knowledge_curation_agent.py`.
     - **Razão:** Completar funcionalidades de autonomia.
-  - [ ] **8.19.2:** Implementar interface (CLI ou UI) para ativar/desativar e configurar o agendamento da tarefa autônoma (Fase 5.5.1).
+  - [x] **8.19.2:** Implementar interface (CLI ou UI) para ativar/desativar e configurar o agendamento da tarefa autônoma (Fase 5.5.1).
     - **Razão:** Completar funcionalidades de UI.
-  - [ ] **8.19.3:** Implementar detecção de idioma e tradução de textos não em português (Fase 7.5.1).
+  - [x] **8.19.3:** Implementar detecção de idioma e tradução de textos não em português (Fase 7.5.1).
     - **Razão:** Completar funcionalidades de processamento de dados.
   - [ ] **8.19.4:** Criar um painel de controle para visualização de dados, exploração do grafo e acesso aos PDFs originais (Fase 7.6.1).
     - **Razão:** Completar funcionalidades de UI.
   - [ ] **8.19.5:** Implementar processos de Bootstrapping, Atualização Diária e Revisão Trimestral usando combinação de modelos Flash e Pro (Fase 7.7.1).
     - **Razão:** Completar funcionalidades de autonomia.
-  - [ ] **8.19.6:** Substituir a função de embedding placeholder em `src/app/core/vector_db.py` por um modelo de embedding mais robusto (Fase 7.8.1).
+  - [ ] **8.19.6:** Substituir a função de embedding placeholder (`SentenceTransformerEmbeddingFunction`) em `src/app/core/vector_db.py` por um modelo de embedding mais robusto (Fase 7.8.1).
     - **Razão:** Melhorar a qualidade do embedding.
 
 - [ ] **8.20: Melhorias no Logging**

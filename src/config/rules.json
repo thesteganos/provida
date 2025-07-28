@@ -1,16 +1,50 @@
 {
   "rules": [
     {
-      "id": "rule1",
-      "description": "If the user has not interacted with the application in the last 24 hours, send a reminder email.",
-      "condition": "user.lastInteraction < now - 24 hours",
-      "action": "sendReminderEmail(user.email)"
+      "id": "user_inactivity_reminder",
+      "description": "Send a reminder email if the user has not interacted with the application in the last 24 hours.",
+      "condition": {
+        "type": "comparison",
+        "operator": "less_than",
+        "operand1": "user.lastInteraction",
+        "operand2": {
+          "type": "datetime_offset",
+          "unit": "hours",
+          "value": 24
+        }
+      },
+      "actions": [
+        {
+          "type": "send_email",
+          "params": {
+            "to": "user.email",
+            "subject": "Lembrete: Sua atenção é necessária no Pró-Vida",
+            "body": "Olá, notamos que você não interage com o Pró-Vida há algum tempo. Gostaríamos de lembrá-lo de nossas funcionalidades."
+          }
+        }
+      ]
     },
     {
-      "id": "rule2",
-      "description": "If the application detects an error, log it and notify the support team.",
-      "condition": "application.errorDetected",
-      "action": "logError(application.error) && notifySupportTeam(application.error)"
+      "id": "application_error_notification",
+      "description": "Log application errors and notify the support team.",
+      "condition": {
+        "type": "boolean_flag",
+        "flag": "application.errorDetected"
+      },
+      "actions": [
+        {
+          "type": "log_error",
+          "params": {
+            "message": "application.error"
+          }
+        },
+        {
+          "type": "notify_support",
+          "params": {
+            "error_details": "application.error"
+          }
+        }
+      ]
     }
   ]
 }

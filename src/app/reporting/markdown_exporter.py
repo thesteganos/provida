@@ -1,3 +1,4 @@
+from app.models.research_models import FinalReport
 from typing import Dict, Any, List
 import logging
 
@@ -7,7 +8,7 @@ class MarkdownExporter:
     """
     Classe para exportar relatórios de pesquisa para Markdown.
     """
-    def export_report(self, final_report: Dict[str, Any], output_filename: str = "report.md") -> bool:
+    def export_report(self, final_report: FinalReport, output_filename: str = "report.md") -> bool:
         """
         Exporta o relatório final para um arquivo Markdown.
         """
@@ -15,17 +16,17 @@ class MarkdownExporter:
         
         content = []
         content.append(f"# Relatório de Pesquisa Pró-Vida\n")
-        content.append(f"## Tópico: {final_report.get('research_question', 'N/A')}\n")
-        content.append(f"Data de Geração: {final_report.get('generation_date', 'N/A')}\n\n")
+        content.append(f"## Tópico: {final_report.research_question}\n")
+        content.append(f"Data de Geração: {final_report.generation_date}\n\n")
 
         content.append(f"## Resumo Final\n")
-        content.append(f"{final_report.get('summary', 'Nenhum resumo disponível.')}\n\n")
+        content.append(f"{final_report.summary}\n\n")
 
-        citations = final_report.get('citations_used', [])
+        citations = final_report.citations_used
         if citations:
             content.append(f"## Citações Utilizadas\n")
             for c in citations:
-                citation_text = f"- [ID: {c.get('id')}] {c.get('sentence_in_summary')}"
+                citation_text = f"- [ID: {c.id}] {c.sentence_in_summary}"
                 content.append(f"{citation_text}\n")
             content.append(f"\n")
 

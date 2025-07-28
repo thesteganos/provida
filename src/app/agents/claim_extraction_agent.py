@@ -22,25 +22,9 @@ class ClaimExtractionAgent:
         """
         Deconstrói um texto em uma lista de tripletas (sujeito, predicado, objeto).
         """
-        prompt = f"""
-        Você é um agente de análise linguística. Sua tarefa é extrair todas as alegações factuais do texto fornecido.
-        Cada alegação deve ser representada como uma triplera JSON com "subject", "predicate" e "object".
-        O "predicate" deve ser uma frase verbal concisa em maiúsculas, representando a relação (ex: 'IS_A', 'CAUSES', 'TREATS', 'HAS_COMPLICATION').
+        from app.prompts.llm_prompts import CLAIM_EXTRACTION_AGENT_PROMPT
 
-        Exemplo:
-        Texto de entrada: "A gastrectomia vertical, um tipo de cirurgia bariátrica, pode causar fístulas."
-        Saída JSON esperada:
-        [
-            {{"subject": "gastrectomia vertical", "predicate": "IS_A", "object": "cirurgia bariátrica"}},
-            {{"subject": "gastrectomia vertical", "predicate": "CAN_CAUSE", "object": "fístulas"}}
-        ]
-
-        --- TEXTO PARA ANÁLISE ---
-        {text}
-        --- FIM DO TEXTO ---
-
-        Sua resposta DEVE ser um array JSON válido. Se nenhuma alegação for encontrada, retorne um array vazio [].
-        """
+        prompt = CLAIM_EXTRACTION_AGENT_PROMPT.format(text=text)
         try:
             response = await self.model.generate_content_async(prompt)
             cleaned_text = response.text.strip().removeprefix("```json").removesuffix("```")

@@ -1,7 +1,8 @@
 from app.orchestrator_graph import build_research_graph, ResearchState
+from app.models.research_models import FinalReport, VerificationReport
 from typing import Dict, Any, Optional
 
-def run_deep_research(topic: str, search_limit: Optional[int] = None) -> Dict[str, Any]:
+async def run_deep_research(topic: str, search_limit: Optional[int] = None) -> Dict[str, Any]:
     """
     Executa o modo de pesquisa profunda e retorna o estado final.
 
@@ -18,9 +19,9 @@ def run_deep_research(topic: str, search_limit: Optional[int] = None) -> Dict[st
         research_plan={},
         collected_data=[],
         analyzed_data=[],
-        final_report={},
-        verification_report={},
+        final_report=None,
+        verification_report=None,
         search_limit=search_limit, # Pass search_limit to ResearchState
     )
 
-    return graph.invoke(initial_state)
+    return await graph.ainvoke(initial_state)
