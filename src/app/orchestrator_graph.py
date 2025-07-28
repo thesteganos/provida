@@ -71,15 +71,18 @@ async def analysis_node(state: ResearchState) -> Dict[str, Any]:
     logger.info("Analisando dados coletados...")
     analysis_agent = AnalysisAgent()
     tasks = [
-        analysis_agent.classify_evidence(item["content"])
-        for item in state["collected_data"]
+        analysis_agent.classify_evidence(
+            text=item.content,
+            source_identifier=item.source_identifier
+        )
+        for item in state.collected_data
     ]
     analysis_results = await asyncio.gather(*tasks)
 
     # Combina o resultado da análise com o identificador da fonte
     analyzed_data = [
-        AnalyzedDataItem(source_identifier=item["source_identifier"], analysis=result)
-        for item, result in zip(state["collected_data"], analysis_results)
+        AnalyzedDataItem(source_identifier=item.source_identifier, analysis=result)
+        for item, result in zip(state.collected_data, analysis_results)
     ]
     return {"analyzed_data": analyzed_data}
 
