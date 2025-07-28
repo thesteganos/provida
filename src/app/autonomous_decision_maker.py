@@ -1,11 +1,17 @@
+"""Evaluate and execute autonomous actions based on configurable rules."""
+
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List
 
-# Load rules from rules.json
-with open('../config/rules.json', 'r') as file:
-    rules = json.load(file)['rules']
+# Load rules from rules.json relative to this file
+RULES_PATH = Path(__file__).resolve().parent.parent / "config" / "rules.json"
+with open(RULES_PATH, "r", encoding="utf-8") as file:
+    rules: List[Dict[str, Any]] = json.load(file)["rules"]
 
-def evaluate_conditions(rule, context):
+def evaluate_conditions(rule: Dict[str, Any], context: Dict[str, Any]) -> bool:
+    """Evaluate whether ``rule`` should trigger given ``context``."""
     # Simple condition evaluation for demonstration purposes
     if rule['id'] == 'rule1':
         # Example condition: user has not interacted in the last 24 hours
@@ -17,7 +23,8 @@ def evaluate_conditions(rule, context):
         return error_detected
     return False
 
-def execute_action(action, context):
+def execute_action(action: str, context: Dict[str, Any]) -> None:
+    """Execute the given action string with the provided context."""
     # Simple action execution for demonstration purposes
     if action == 'sendReminderEmail(user.email)':
         user_email = context.get('user', {}).get('email', 'default@example.com')
@@ -27,10 +34,11 @@ def execute_action(action, context):
         print(f"Logging error: {error}")
         print(f"Notifying support team about error: {error}")
 
-def make_autonomous_decisions(context):
+def make_autonomous_decisions(context: Dict[str, Any]) -> None:
+    """Run the decision loop for all configured rules."""
     for rule in rules:
         if evaluate_conditions(rule, context):
-            actions = rule['action'].split(' && ')
+            actions = rule["action"].split(" && ")
             for action in actions:
                 execute_action(action, context)
 
@@ -47,3 +55,4 @@ if __name__ == "__main__":
         }
     }
     make_autonomous_decisions(context)
+

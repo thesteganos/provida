@@ -65,6 +65,10 @@ ENTREZ_EMAIL=seu_email@example.com
 ENTREZ_API_KEY=SUA_CHAVE_API_DO_ENTREZ_AQUI
 ```
 
+These keys enable the integrated search tools. `BRAVE_API_KEY` is required for
+Brave Search queries, while `ENTREZ_EMAIL` and `ENTREZ_API_KEY` are used for
+PubMed searches. Without these values the related features will be disabled.
+
 **3. Start Services with Docker Compose (Recommended):**
 This will build the application image and start all required services (Neo4j, MinIO, ChromaDB).
 ```bash
@@ -125,12 +129,13 @@ python -m src.app.cli profunda "impacto da cirurgia bariátrica na saúde metab�
 - `config.yaml`: Centralized configuration for LLM models and services.
 - `tests/`: Unit and integration tests for various modules.
 - `use-cases/`: Contains context engineering templates for other projects (not part of the core Provida application).
+- `docs/`: Additional documentation such as [`rules.md`](docs/rules.md) and search tool information.
 
 ## Dependencies
 All project dependencies are listed in `requirements.txt`.
 
 ## Contributing
-Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute to the project. (Note: `CONTRIBUTING.md` is not yet present and would need to be created).
+Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute to the project.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
