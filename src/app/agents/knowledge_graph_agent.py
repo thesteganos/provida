@@ -1,8 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 from app.config.settings import settings
 from app.core.db.neo4j_manager import execute_query, get_neo4j_driver
+from app.models.agent_models import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
@@ -24,26 +25,17 @@ class KnowledgeGraphAgent:
     async def update_graph_with_analysis(
         self,
         source_identifier: str,
-        analysis_data: Dict[str, Any],
+        analysis_data_dict: Dict[str, Any],
         research_topic: str,
     ):
         """
         Atualiza o grafo de conhecimento com os resultados de uma análise.
 
         Cria/atualiza nós para a Fonte, o Tópico, a Evidência, o Resumo e as Palavras-chave,
-        e estabelece as relações entre eles.
+        e estabelece as relações entre eles, após validar os dados com Pydantic.
         """
-        # 1. Validação robusta dos dados de entrada.
-        summary = analysis_data.get("summary")
-        evidence_level = analysis_data.get("evidence_level")
-        keywords = analysis_data.get("keywords", [])
-
-        if not summary or not isinstance(summary, str):
-            raise ValueError(f"O campo 'summary' está ausente ou não é uma string para a fonte {source_identifier}")
-        if not evidence_level or not isinstance(evidence_level, str):
-            raise ValueError(f"O campo 'evidence_level' está ausente ou não é uma string para a fonte {source_identifier}")
-        if not isinstance(keywords, list):
-            raise ValueError(f"O campo 'keywords' não é uma lista para a fonte {source_identifier}")
+        # 1. Validação robusta dos dados de entrada usando Pydantic.
+        analysis_result = AnalysisResult.model_validate(analysis_data_dict)
 
         query = """
         // 1. Encontra ou cria os nós principais: Tópico, Fonte e Nível de Evidência.
@@ -76,9 +68,9 @@ class KnowledgeGraphAgent:
         parameters = {
             "source_identifier": source_identifier,
             "research_topic": research_topic,
-            "summary": summary,
-            "evidence_level": evidence_level,
-            "keywords": keywords,
+            "summary": analysis_result.summary,
+            "evidence_level": analysis_result.evidence_level,
+            "keywords": analysis_result.keywords,
         }
 
         try:

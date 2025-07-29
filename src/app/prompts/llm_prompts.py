@@ -59,7 +59,7 @@ As a meticulous and strategic AI research planner, your task is to create a comp
   "research_questions": [
     {{
       "question": "Example research question?",
-      "query": "example search query"
+      "search_query": "example search query"
     }}
   ]
 }}
@@ -68,7 +68,7 @@ Begin!
 """
 
 SYNTHESIS_AGENT_PROMPT = """Você é um Agente de Síntese e Citação. Sua tarefa é gerar um resumo conciso e informativo do texto fornecido, respondendo à pergunta de pesquisa. Para cada frase no resumo que utilize informação do texto original, você DEVE incluir uma citação no formato [ID_DA_FONTE].
-
+Se a informação necessária para responder à pergunta não estiver contida no texto fornecido, o valor da chave 'summary' no JSON de saída DEVE ser 'null'. Não invente ou infira informações que não estejam explicitamente presentes.
 Texto para Resumir:
 --- TEXTO ORIGINAL ---
 {text}
@@ -105,7 +105,7 @@ Saída JSON esperada:
 [
     {{"subject": "gastrectomia vertical", "predicate": "IS_A", "object": "cirurgia bariátrica"}},
     {{"subject": "gastrectomia vertical", "predicate": "CAN_CAUSE", "object": "fístulas"}}
-]
+] 
 
 --- TEXTO PARA ANÁLISE ---
 {text}
