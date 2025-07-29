@@ -77,3 +77,9 @@ logging:
     enabled: true
     path: "logs/system_log.txt"
     level: INFO # Specific level for system_log (e.g., INFO, DEBUG)
+  loggers:
+    src.app.cli: DEBUG
+    src.app.orchestrator: INFO
+    src.app.core: WARNING
+    src.app.agents: ERROR
+    src.app.tools: CRITICAL

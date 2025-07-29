@@ -20,8 +20,12 @@ def main() -> None:
 
     logger.info("Starting the Provida application...")
     
-    scheduler_service = SchedulerService()
-    scheduler_service.start()
+    try:
+        scheduler_service = SchedulerService()
+        scheduler_service.start()
+    except Exception as e:
+        logger.error(f"Failed to start SchedulerService: {e}")
+        raise
 
     try:
         # Keep the main thread alive to allow scheduled jobs to run

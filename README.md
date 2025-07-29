@@ -1,45 +1,47 @@
-# Provida Project
+# Provida
 
-## Overview
-Provida is an advanced AI research assistant specifically designed for bariatric surgeons. It provides evidence-based answers and conducts deep research using a multi-agent architecture, integrating various LLMs (Gemini 2.5 family), knowledge graphs (Neo4j), vector databases (ChromaDB), and external search tools (Brave Search, PubMed). All searches são voltadas à cirurgia bariátrica e ao tratamento da obesidade, mas é possível liberar outros assuntos passando `allowed_topics` para a função de busca.
+Provida é um sistema de inteligência artificial projetado para realizar pesquisas profundas e fornecer respostas rápidas com base em uma base de conhecimento existente.
 
-**Key Features:**
-- **Rapid Query (RAG Mode):** Quick, evidence-based answers from existing knowledge.
-- **Deep Research Mode:** Comprehensive, multi-step investigations orchestrated by LangGraph.
-- **Intelligent Agents:** Specialized agents for planning, analysis, synthesis, and fact-checking.
-- **Data Management:** Secure storage (MinIO S3) and structured knowledge representation (Neo4j, ChromaDB).
-- **Flexible LLM Configuration:** Dynamic allocation of Gemini models (Pro, Flash, Flash-Lite) for different tasks.
+## Visão Geral
+Provida é um assistente de pesquisa avançado de IA especificamente projetado para cirurgiões bariátricos. Ele fornece respostas baseadas em evidências e realiza pesquisas profundas usando uma arquitetura multi-agente, integrando vários LLMs (família Gemini 2.5), grafos de conhecimento (Neo4j), bancos de dados vetoriais (ChromaDB) e ferramentas de pesquisa externas (Brave Search, PubMed). Todas as pesquisas são voltadas para cirurgia bariátrica e tratamento da obesidade, mas é possível liberar outros assuntos passando `allowed_topics` para a função de busca.
 
-## Installation
+**Principais Funcionalidades:**
+- **Modo de Consulta Rápida (RAG):** Respostas rápidas baseadas em conhecimento existente.
+- **Modo de Pesquisa Profunda:** Pesquisas abrangentes e multietapas orquestradas pelo LangGraph.
+- **Agentes Inteligentes:** Agentes especializados para planejamento, análise, síntese e verificação de fatos.
+- **Gerenciamento de Dados:** Armazenamento seguro (MinIO S3) e representação estruturada de conhecimento (Neo4j, ChromaDB).
+- **Configuração Flexível de LLM:** Alocamento dinâmico de modelos Gemini (Pro, Flash, Flash-Lite) para diferentes tarefas.
 
-### Prerequisites
-- Docker and Docker Compose (recommended for easy setup of all services)
-- Python 3.10 or higher (if running without Docker)
+## Instalação
 
-### Steps
+### Pré-requisitos
+- Docker e Docker Compose (recomendado para configuração fácil de todos os serviços)
+- Python 3.10 ou superior (se executar sem Docker)
 
-**1. Clone the repository:**
+### Passos
+
+**1. Clone o repositório:**
 ```bash
-git clone https://github.com/your-repo/provida.git # Replace with actual repo URL
+git clone https://github.com/seu-repositorio/provida.git # Substitua pelo URL real do repositório
 cd provida
 ```
 
-**2. Setup Environment Variables:**
-Copy the example environment file and populate it with your credentials. This is crucial for the application and Docker services.
+**2. Configure as Variáveis de Ambiente:**
+Copie o arquivo de exemplo de ambiente e preencha-o com suas credenciais. Isso é crucial para o aplicativo e os serviços Docker.
 ```bash
 cp .env.example .env
 ```
-Edit the newly created `.env` file and fill in the placeholder values:
+Edite o arquivo `.env` recém-criado e preencha os valores de espaço reservado:
 
 ```plaintext
 # Credenciais para o Google Gemini
 GOOGLE_API_KEY=SUA_CHAVE_API_DO_GOOGLE_AQUI
 
 # --- Credenciais para os Serviços Docker ---
-# Estas senhas são usadas pelo docker-compose para inicializar os serviços.
-NEO4J_PASSWORD=senha_super_segura_para_neo4j # Choose a strong password
-MINIO_ACCESS_KEY=minioadmin # Keep default or change
-MINIO_SECRET_KEY=minio_senha_super_segura # Choose a strong password
+# Essas senhas são usadas pelo docker-compose para inicializar os serviços.
+NEO4J_PASSWORD=senha_super_segura_para_neo4j # Escolha uma senha forte
+MINIO_ACCESS_KEY=minioadmin # Mantenha o padrão ou altere
+MINIO_SECRET_KEY=minio_senha_super_segura # Escolha uma senha forte
 
 # --- Configurações da Aplicação (lidas pelo Pydantic) ---
 # Use o delimitador duplo underscore (__) para estruturas aninhadas.
@@ -57,85 +59,87 @@ DATABASE__NEO4J_MEMORY_AGENTS__USER=neo4j
 DATABASE__NEO4J_MEMORY_AGENTS__PASSWORD=${NEO4J_PASSWORD}
 DATABASE__NEO4J_MEMORY_AGENTS__DATABASE=provida-memory
 
-# Brave Search API Key (for general web search)
+# Chave de API do Brave Search (para pesquisas na web em geral)
 BRAVE_API_KEY=SUA_CHAVE_API_DO_BRAVE_AQUI
 
-# Entrez PubMed API Key and Email (for academic search)
+# Chave de API e Email do Entrez PubMed (para pesquisas acadêmicas)
 ENTREZ_EMAIL=seu_email@example.com
 ENTREZ_API_KEY=SUA_CHAVE_API_DO_ENTREZ_AQUI
 ```
 
-These keys enable the integrated search tools. `BRAVE_API_KEY` is required for
-Brave Search queries, while `ENTREZ_EMAIL` and `ENTREZ_API_KEY` are used for
-PubMed searches. Without these values the related features will be disabled.
+Essas chaves habilitam as ferramentas de pesquisa integradas. `BRAVE_API_KEY` é necessário para
+pesquisas do Brave Search, enquanto `ENTREZ_EMAIL` e `ENTREZ_API_KEY` são usados para
+pesquisas do PubMed. Sem esses valores, os recursos relacionados serão desabilitados.
 
-**3. Start Services with Docker Compose (Recommended):**
-This will build the application image and start all required services (Neo4j, MinIO, ChromaDB).
+**3. Inicie os Serviços com Docker Compose (Recomendado):**
+Isso construirá a imagem do aplicativo e iniciará todos os serviços necessários (Neo4j, MinIO, ChromaDB).
 ```bash
 docker-compose up -d
 ```
 
-**4. (Optional) Manual Python Environment Setup:**
-If you prefer to run the Python application directly (e.g., for development without Docker services):
+**4. (Opcional) Configuração Manual do Ambiente Python:**
+Se preferir executar o aplicativo Python diretamente (por exemplo, para desenvolvimento sem serviços Docker):
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+source venv/bin/activate  # No Windows use `venv\Scripts\activate`
 pip install -r requirements.txt
 ```
 
-## Usage
+## Uso
 
-The `Provida` application is primarily interacted with via its Command Line Interface (CLI).
+O aplicativo `Provida` é principalmente interagido através de sua Interface de Linha de Comando (CLI).
 
-**To run the CLI (from the project root):**
+**Para executar a CLI (a partir da raiz do projeto):**
 ```bash
 python -m src.app.cli
 ```
 
-### Rapid Query Mode (`rapida`)
-Get quick, evidence-based answers from the existing knowledge base.
-
+### Modo de Consulta Rápida (`rapida`)
+Obtenha respostas rápidas baseadas no banco de conhecimento existente.
 ```bash
 python -m src.app.cli rapida "qual a dose recomendada de vitamina D para adultos?"
 ```
 
-**Output Formats:**
-By default, output is formatted for readability. You can request JSON output for programmatic use:
+**Formatos de Saída:**
+Por padrão, a saída é formatada para leitura. Você pode solicitar saída JSON para uso programático:
 ```bash
 python -m src.app.cli rapida "efeitos colaterais da gastrectomia vertical" --output-format json
 ```
 
-### Deep Research Mode (`profunda`)
-Initiate a comprehensive, multi-step research process on a given topic.
-
+### Modo de Pesquisa Profunda (`profunda`)
+Inicie um processo de pesquisa abrangente e multietapas sobre um tópico específico.
 ```bash
 python -m src.app.cli profunda "novas abordagens cirúrgicas para obesidade mórbida"
 ```
 
-**Output Formats:**
-Similar to `rapida`, you can get JSON output:
+**Formatos de Saída:**
+Semelhante ao `rapida`, você pode obter saída JSON:
 ```bash
 python -m src.app.cli profunda "impacto da cirurgia bariátrica na saúde metabólica" --output-format json
 ```
 
-## Project Structure
+## Estrutura do Projeto
 
-- `src/app/agents/`: Specialized AI agents (planning, analysis, synthesis, memory, etc.).
-- `src/app/tools/`: External integrations (Brave Search, PubMed) and utility functions.
-- `src/app/core/`: Core infrastructure services (LLM provider, MinIO, ChromaDB).
-- `src/app/cli.py`: The main Command Line Interface entry point.
-- `src/app/rag.py`: Implementation of the Retrieval-Augmented Generation (RAG) logic.
-- `src/app/orchestrator_graph.py`: Defines the deep research workflow using LangGraph.
-- `config.yaml`: Centralized configuration for LLM models and services.
-- `tests/`: Unit and integration tests for various modules.
-- `use-cases/`: Contains context engineering templates for other projects (not part of the core Provida application).
-- `docs/`: Additional documentation such as [`rules.md`](docs/rules.md) and search tool information.
+- **`src/app/`**: Contém a lógica principal da aplicação.
+  - **`agents/`**: Agentes especializados em diferentes tarefas.
+  - **`cli.py`**: Interface de linha de comando principal.
+  - **`core/`**: Serviços principais como provedor de LLM, MinIO, ChromaDB, etc.
+  - **`orchestrator_graph.py`**: Define o fluxo de trabalho de pesquisa usando LangGraph.
+  - **`orchestrator.py`**: Executa o modo de pesquisa profunda e retorna o estado final.
+  - **`rag.py`**: Implementação da lógica de Retrieval-Augmented Generation (RAG).
+  - **`scheduler_service.py`**: Gerencia a execução de tarefas agendadas.
+  - **`tools/`**: Integrações com serviços externos e funções utilitárias.
 
-## Dependencies
-All project dependencies are listed in `requirements.txt`.
+- **`tests/`**: Testes unitários e de integração para garantir a qualidade do código.
 
-## Contributing
-Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute to the project.
+- **`config.yaml`**: Configurações centrais para o aplicativo, incluindo logging e dependências.
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **`docker-compose.yml`**: Configuração para iniciar os serviços necessários usando Docker.
+
+## Contribuição
+
+Contribuições são bem-vindas! Por favor, leia o [CONTRIBUTING.md](CONTRIBUTING.md) para mais detalhes.
+
+## Licença
+
+Este projeto está licenciado sob a [MIT License](LICENSE).
