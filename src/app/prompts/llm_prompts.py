@@ -105,7 +105,7 @@ Saída JSON esperada:
 [
     {{"subject": "gastrectomia vertical", "predicate": "IS_A", "object": "cirurgia bariátrica"}},
     {{"subject": "gastrectomia vertical", "predicate": "CAN_CAUSE", "object": "fístulas"}}
-] 
+]
 
 --- TEXTO PARA ANÁLISE ---
 {text}
